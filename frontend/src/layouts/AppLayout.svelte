@@ -111,7 +111,7 @@
 
 <!-- Desktop Header -->
 <header
-	class="hidden lg:flex fixed top-0 left-72 right-0 h-16 z-40 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200/80 dark:border-white/[0.04] items-center justify-end px-6 gap-3"
+	class="hidden xl:flex fixed top-0 left-72 right-0 h-16 z-40 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200/80 dark:border-white/[0.04] items-center justify-end px-6 gap-3"
 >
 	<DarkModeToggle />
 
@@ -171,7 +171,7 @@
 
 <!-- Desktop Sidebar -->
 <aside
-	class="hidden lg:flex flex-col fixed left-0 top-0 h-full w-72 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-r border-neutral-200/80 dark:border-white/[0.04] z-30 transition-all duration-300"
+	class="hidden xl:flex flex-col fixed left-0 top-0 h-full w-72 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-r border-neutral-200/80 dark:border-white/[0.04] z-30 transition-all duration-300"
 >
 	<!-- Logo -->
 	<a
@@ -258,7 +258,7 @@
 
 <!-- Mobile Header -->
 <header
-	class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-neutral-950 backdrop-blur-xl border-b border-neutral-200/80 dark:border-white/[0.04]"
+	class="xl:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-neutral-950 backdrop-blur-xl border-b border-neutral-200/80 dark:border-white/[0.04]"
 >
 	<div class="flex items-center justify-between px-4 h-16">
 		<a href="/app" use:inertia class="flex items-center gap-2">
@@ -359,7 +359,7 @@
 
 <!-- Mobile Menu Drawer -->
 {#if isMenuOpen}
-	<div class="lg:hidden fixed inset-0 z-50">
+	<div class="xl:hidden fixed inset-0 z-50">
 		<button
 			class="absolute inset-0 w-full h-full bg-neutral-900/50 backdrop-blur-sm"
 			transition:fade={{ duration: 200 }}
@@ -472,12 +472,12 @@
 {/if}
 
 <!-- Desktop spacer for header -->
-<div class="hidden lg:block h-16"></div>
+<div class="hidden xl:block h-16"></div>
 
 <!-- Mobile spacer -->
-<div class="lg:hidden h-16"></div>
+<div class="xl:hidden h-16"></div>
 
 <!-- Page Content -->
-<div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+<div class="min-h-screen bg-neutral-50 dark:bg-neutral-950 xl:ml-72">
 	{@render children()}
 </div>
