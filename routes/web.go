@@ -114,6 +114,10 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, uploadHandl
 	protected.Post("/members", appHandler.CreateMember)
 	protected.Put("/members/:id", appHandler.UpdateMember)
 
+	// Fingerprint import preview
+	protected.Get("/fingerprint", appHandler.FingerprintImport)
+	protected.Post("/fingerprint/preview", appHandler.PreviewFingerprint)
+
 	// Profile
 	protected.Get("/profile", appHandler.Profile)
 	protected.Put("/profile", appHandler.UpdateProfile)
