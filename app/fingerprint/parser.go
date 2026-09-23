@@ -72,27 +72,28 @@ func ParseXLS(data []byte) (*Preview, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidWorkbook, err)
 	}
-	if book.NumSheets() == 0 {
-		return nil, fmt.Errorf("%w: workbook has no sheets", ErrInvalidWorkbook)
+	if book.NumSheets() != 1 {
+		return nil, fmt.Errorf("%w: expected one worksheet", ErrInvalidWorkbook)
 	}
 
-	sheet := book.GetSheet(0)
-	if sheet == nil {
-		return nil, fmt.Errorf("%w: first sheet is unavailable", ErrInvalidWorkbook)
+	// ReadAllCells is intentional here. Some fingerprint exports omit BIFF ROW
+	// records for rows that still contain cells. In that case Row.FirstCol and
+	// Row.LastCol are both zero in the xls library, so scanning through Row()
+	// silently misses User ID, name, day numbers, and punch cells.
+	cells := book.ReadAllCells(5000)
+	if len(cells) == 0 {
+		return nil, fmt.Errorf("%w: worksheet is empty", ErrInvalidWorkbook)
 	}
 
-	startDate, endDate := findPeriod(sheet)
+	startDate, endDate := findPeriod(cells)
 	preview := &Preview{
 		PeriodStart: formatDate(startDate),
 		PeriodEnd:   formatDate(endDate),
 		People:      make([]PersonPreview, 0),
 	}
 
-	for rowIndex := 0; rowIndex <= int(sheet.MaxRow); rowIndex++ {
-		row := sheet.Row(rowIndex)
-		if row == nil {
-			continue
-		}
+	for rowIndex := 0; rowIndex < len(cells); rowIndex++ {
+		row := cells[rowIndex]
 
 		fingerprintID := findMetadataValue(row, "user id")
 		name := findMetadataValue(row, "nama")
@@ -107,23 +108,20 @@ func ParseXLS(data []byte) (*Preview, error) {
 			Days:          make([]DayPreview, 0, 31),
 		}
 
-		dayRow := sheet.Row(rowIndex + 1)
-		punchRow := sheet.Row(rowIndex + 2)
-		if dayRow == nil {
+		dayRowIndex := rowIndex + 1
+		punchRowIndex := rowIndex + 2
+		if dayRowIndex >= len(cells) {
 			continue
 		}
 
-		lastCol := dayRow.LastCol()
-		for col := dayRow.FirstCol(); col <= lastCol; col++ {
-			day, ok := parseDayNumber(dayRow.Col(col))
+		dayRow := cells[dayRowIndex]
+		for col, dayValue := range dayRow {
+			day, ok := parseDayNumber(dayValue)
 			if !ok || day < 1 || day > 31 {
 				continue
 			}
 
-			raw := ""
-			if punchRow != nil && col <= punchRow.LastCol() {
-				raw = punchRow.Col(col)
-			}
+			raw := cellValue(cells, punchRowIndex, col)
 			times := parsePunchTimes(raw)
 			readState := "empty"
 			switch len(times) {
@@ -165,14 +163,10 @@ func ParseXLS(data []byte) (*Preview, error) {
 	return preview, nil
 }
 
-func findPeriod(sheet *xls.WorkSheet) (time.Time, time.Time) {
-	for rowIndex := 0; rowIndex <= int(sheet.MaxRow); rowIndex++ {
-		row := sheet.Row(rowIndex)
-		if row == nil {
-			continue
-		}
-		for col := row.FirstCol(); col <= row.LastCol(); col++ {
-			value := strings.TrimSpace(row.Col(col))
+func findPeriod(cells [][]string) (time.Time, time.Time) {
+	for _, row := range cells {
+		for _, value := range row {
+			value = strings.TrimSpace(value)
 			match := periodPattern.FindStringSubmatch(value)
 			if len(match) != 3 {
 				continue
@@ -187,15 +181,25 @@ func findPeriod(sheet *xls.WorkSheet) (time.Time, time.Time) {
 	return time.Time{}, time.Time{}
 }
 
-func findMetadataValue(row *xls.Row, marker string) string {
+func findMetadataValue(row []string, marker string) string {
 	marker = strings.ToLower(marker)
-	for col := row.FirstCol(); col <= row.LastCol(); col++ {
-		label := normalizeLabel(row.Col(col))
+	for col, value := range row {
+		label := normalizeLabel(value)
 		if strings.Contains(label, marker) {
-			return strings.TrimSpace(row.Col(col + 1))
+			if col+1 < len(row) {
+				return strings.TrimSpace(row[col+1])
+			}
+			return ""
 		}
 	}
 	return ""
+}
+
+func cellValue(cells [][]string, row, col int) string {
+	if row < 0 || row >= len(cells) || col < 0 || col >= len(cells[row]) {
+		return ""
+	}
+	return cells[row][col]
 }
 
 func normalizeLabel(value string) string {
