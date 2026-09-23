@@ -1,0 +1,19 @@
+[Unit]
+Description=Laju Go Application
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/laju-go
+ExecStart=%h/projects/laju-go/laju-go
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=laju-go
+
+# Environment
+EnvironmentFile=%h/projects/laju-go/.env
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,100 @@
+# Go
+# Note: go.sum MUST be committed for applications (reproducible builds,
+# required by Dockerfile's `COPY go.mod go.sum ./`). Do NOT gitignore it.
+vendor/
+
+# Dev server lifecycle manager
+.laju/
+
+# Environment
+.env
+
+# Database
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# User uploads
+storage/*
+!storage/.gitkeep
+
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+deploy.env
+.vite-port
+# Build artifacts
+tmp/
+dist
+
+/laju-go
+/laju-go.exe
+
+
+
+# LLM Wiki — track only concepts/ + entities/ + config + schema.
+# Ignore session logs, raw captures, editor config, and auto-generated metadata.
+.llm-wiki/outputs/
+.llm-wiki/meta/
+.llm-wiki/raw/
+.llm-wiki/wiki/sources/
+.llm-wiki/.discoveries/
+.llm-wiki/.obsidian/
+/wiki
+
+# Graphify — derived knowledge graph artifact.
+# Regen after clone: `graphify . --code-only` (AST-only, no API key needed).
+# Commit only the skill (.devin/skills/graphify, .windsurf/rules/graphify.md).
+graphify-out/
+
+# Site — Astro docs/landing (regenerable, node_modules not tracked)
+site/node_modules/
+site/dist/
+site/.astro/
+
+# Local secrets / environment
+.env
+.env.*
+!.env.example
+
+# Local dependencies / build
+node_modules/
+dist/
+build/
+
+# Local database
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Runtime uploads
+storage/completed/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies / build
+node_modules/
+dist/
+build/
