@@ -109,6 +109,11 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, uploadHandl
 	// Dashboard
 	protected.Get("/", appHandler.Dashboard)
 
+	// Members
+	protected.Get("/members", appHandler.Members)
+	protected.Post("/members", appHandler.CreateMember)
+	protected.Put("/members/:id", appHandler.UpdateMember)
+
 	// Profile
 	protected.Get("/profile", appHandler.Profile)
 	protected.Put("/profile", appHandler.UpdateProfile)
