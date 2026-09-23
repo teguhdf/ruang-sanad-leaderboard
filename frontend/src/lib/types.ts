@@ -24,3 +24,16 @@ export interface Flash {
 	warning?: string;
 	info?: string;
 }
+
+
+export interface Member {
+	id: number;
+	name: string;
+	division: string;
+	work_days: string[];
+	start_time: string;
+	fingerprint_id: string;
+	google_sheet_url: string;
+	created_at: string;
+	updated_at: string;
+}
