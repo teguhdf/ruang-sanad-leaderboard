@@ -96,6 +96,7 @@ func main() {
 		GoogleRedirectURL:  cfg.GoogleRedirectURL,
 	})
 	userService := services.NewUserService(querier)
+	memberService := services.NewMemberService(querier)
 
 	// Initialize Asset service (for production builds with hashed filenames)
 	assetService := services.NewAssetService("./dist/.vite/manifest.json", ".vite-port", cfg.IsDevelopment())
@@ -131,7 +132,7 @@ func main() {
 	routeHandlers := routes.Handlers{
 		Public: handlers.NewPublicHandler(authService, userService, inertiaService, assetService),
 		Auth:   handlers.NewAuthHandler(authService, sessionStore, inertiaService, mailerService),
-		App:    handlers.NewAppHandler(userService, sessionStore, inertiaService),
+		App:    handlers.NewAppHandler(userService, memberService, sessionStore, inertiaService),
 		Upload: uploadHandler,
 	}
 
