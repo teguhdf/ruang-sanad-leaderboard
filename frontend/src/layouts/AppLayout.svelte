@@ -11,6 +11,7 @@
 		User,
 		Upload,
 		Users,
+		FileSpreadsheet,
 	} from "lucide-svelte";
 	import DarkModeToggle from "@components/DarkModeToggle.svelte";
 	import Logo from "@components/Logo.svelte";
@@ -57,6 +58,13 @@
 			group: "members",
 			show: true,
 			icon: Users,
+		},
+		{
+			href: "/app/fingerprint",
+			label: "Import Fingerprint",
+			group: "fingerprint",
+			show: true,
+			icon: FileSpreadsheet,
 		},
 		{
 			href: "/app/upload",
@@ -188,6 +196,8 @@
 				<p class="text-xs text-neutral-500 dark:text-neutral-400">Dashboard</p>
 			{:else if group === "members"}
 				<p class="text-xs text-neutral-500 dark:text-neutral-400">Anggota Tim</p>
+			{:else if group === "fingerprint"}
+				<p class="text-xs text-neutral-500 dark:text-neutral-400">Import Fingerprint</p>
 			{:else if group === "profile"}
 				<p class="text-xs text-neutral-500 dark:text-neutral-400">Settings</p>
 			{:else}
