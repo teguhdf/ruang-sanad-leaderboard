@@ -37,3 +37,45 @@ export interface Member {
 	created_at: string;
 	updated_at: string;
 }
+
+
+export interface FingerprintDayPreview {
+	day: number;
+	date: string;
+	raw_value: string;
+	times: string[];
+	read_state: "empty" | "one_time" | "two_times" | "multiple_times";
+}
+
+export interface FingerprintPersonPreview {
+	fingerprint_id: string;
+	file_name: string;
+	department: string;
+	matched: boolean;
+	member_id?: number;
+	member_name?: string;
+	days: FingerprintDayPreview[];
+	summary: {
+		two_times: number;
+		one_time: number;
+		empty: number;
+		multiple_times: number;
+	};
+}
+
+export interface FingerprintPreview {
+	file_name: string;
+	period_start: string;
+	period_end: string;
+	people: FingerprintPersonPreview[];
+	summary: {
+		file_people: number;
+		matched: number;
+		unmatched: number;
+		total_slots: number;
+		two_times: number;
+		one_time: number;
+		empty: number;
+		multiple_times: number;
+	};
+}
