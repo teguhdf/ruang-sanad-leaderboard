@@ -1,19 +1,37 @@
 <script lang="ts">
     import AppLayout from "@layouts/AppLayout.svelte";
     import { getCSRFToken } from "@lib/utils/csrf";
-    import type { FingerprintPreview, User } from "@lib/types";
+    import type {
+        FingerprintDayPreview,
+        FingerprintPersonPreview,
+        FingerprintPreview,
+        User,
+    } from "@lib/types";
     import {
         CalendarDays,
         CheckCircle2,
         FileSpreadsheet,
         Fingerprint,
+        Pencil,
+        RotateCcw,
+        Save,
         Upload,
         UserCheck,
         UserX,
+        X,
     } from "lucide-svelte";
 
     interface Props {
         user?: User;
+    }
+
+    interface CorrectionDraft {
+        check_in: string;
+        check_out: string;
+        reason: string;
+        editing: boolean;
+        applied: boolean;
+        error: string;
     }
 
     let { user }: Props = $props();
@@ -22,12 +40,85 @@
     let preview = $state<FingerprintPreview | null>(null);
     let loading = $state(false);
     let errorMessage = $state("");
+    let corrections = $state<Record<string, CorrectionDraft>>({});
+
+    function correctionKey(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
+        return `${person.fingerprint_id}:${day.date || day.day}`;
+    }
+
+    function rawCheckIn(day: FingerprintDayPreview) {
+        return day.times[0] ?? "";
+    }
+
+    function rawCheckOut(day: FingerprintDayPreview) {
+        return day.times[1] ?? "";
+    }
+
+    function getCorrection(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
+        const key = correctionKey(person, day);
+        if (!corrections[key]) {
+            corrections[key] = {
+                check_in: rawCheckIn(day),
+                check_out: rawCheckOut(day),
+                reason: "",
+                editing: false,
+                applied: false,
+                error: "",
+            };
+        }
+        return corrections[key];
+    }
+
+    function isChanged(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
+        const draft = getCorrection(person, day);
+        return draft.check_in !== rawCheckIn(day) || draft.check_out !== rawCheckOut(day);
+    }
+
+    function startCorrection(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
+        const draft = getCorrection(person, day);
+        draft.editing = true;
+        draft.error = "";
+    }
+
+    function cancelCorrection(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
+        const draft = getCorrection(person, day);
+        draft.check_in = rawCheckIn(day);
+        draft.check_out = rawCheckOut(day);
+        draft.reason = "";
+        draft.editing = false;
+        draft.applied = false;
+        draft.error = "";
+    }
+
+    function applyCorrection(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
+        const draft = getCorrection(person, day);
+
+        if (!isChanged(person, day)) {
+            draft.error = "Belum ada perubahan waktu.";
+            return;
+        }
+
+        if (!draft.reason.trim()) {
+            draft.error = "Alasan koreksi wajib diisi.";
+            return;
+        }
+
+        draft.reason = draft.reason.trim();
+        draft.applied = true;
+        draft.editing = false;
+        draft.error = "";
+    }
+
+    function correctedCount() {
+        return Object.values(corrections).filter((item) => item.applied).length;
+    }
 
     function handleFileChange(event: Event) {
         const input = event.target as HTMLInputElement;
         selectedFile = input.files?.[0] ?? null;
         preview = null;
         errorMessage = "";
+        corrections = {};
     }
 
     async function createPreview() {
@@ -36,6 +127,7 @@
         loading = true;
         preview = null;
         errorMessage = "";
+        corrections = {};
 
         const formData = new FormData();
         formData.append("file", selectedFile);
@@ -135,7 +227,7 @@
             <section class="rounded-2xl border border-amber-400/25 bg-amber-50/70 dark:bg-amber-500/5 px-5 py-4">
                 <p class="text-sm font-semibold text-amber-900 dark:text-amber-300">Preview saja, belum disimpan</p>
                 <p class="text-sm text-amber-800/80 dark:text-amber-300/70 mt-1">
-                    Sel kosong tidak dianggap absen dan satu waktu tidak dibuatkan jam pulang.
+                    Sel kosong tidak dianggap absen. Waktu pertama dibaca sebagai jam masuk, waktu kedua sebagai jam pulang. Koreksi di halaman ini masih berupa draft dan belum masuk database.
                 </p>
             </section>
 
@@ -167,6 +259,7 @@
                             <span>2 waktu: {preview.summary.two_times}</span>
                             <span>1 waktu: {preview.summary.one_time}</span>
                             <span>Kosong: {preview.summary.empty}</span>
+                            <span>Koreksi manual: {correctedCount()}</span>
                         </div>
                     </div>
                     <div class="text-xs text-neutral-500 break-all">{preview.file_name}</div>
@@ -209,41 +302,156 @@
                             </summary>
 
                             <div class="px-5 sm:px-6 pb-6">
-                                <div class="overflow-x-auto rounded-xl border border-neutral-200 dark:border-white/[0.06]">
-                                    <table class="min-w-full text-sm">
-                                        <thead class="bg-neutral-50 dark:bg-neutral-900/70 text-left text-neutral-500">
-                                            <tr>
-                                                <th class="px-4 py-3 font-medium">Tanggal</th>
-                                                <th class="px-4 py-3 font-medium">Data waktu asli</th>
-                                                <th class="px-4 py-3 font-medium">Pembacaan</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-neutral-200 dark:divide-white/[0.05]">
-                                            {#each person.days as day}
-                                                <tr>
-                                                    <td class="px-4 py-3 whitespace-nowrap text-neutral-700 dark:text-neutral-300">
-                                                        <span class="inline-flex items-center gap-1.5">
-                                                            <CalendarDays class="w-3.5 h-3.5 text-neutral-400" />
-                                                            {day.date || `Hari ${day.day}`}
-                                                        </span>
-                                                    </td>
-                                                    <td class="px-4 py-3 whitespace-pre-line font-mono text-neutral-700 dark:text-neutral-300">
-                                                        {day.times.length ? day.times.join(" / ") : "Tidak ada data"}
-                                                    </td>
-                                                    <td class="px-4 py-3 whitespace-nowrap">
-                                                        {#if day.read_state === "two_times"}
-                                                            <span class="inline-flex items-center gap-1 text-green-700 dark:text-green-400">
-                                                                <CheckCircle2 class="w-3.5 h-3.5" />
-                                                                {stateLabel(day.read_state)}
-                                                            </span>
-                                                        {:else}
-                                                            <span class="text-neutral-500">{stateLabel(day.read_state)}</span>
+                                <div class="space-y-3">
+                                    {#each person.days as day}
+                                        {@const draft = getCorrection(person, day)}
+                                        <article class="rounded-xl border border-neutral-200 dark:border-white/[0.06] bg-neutral-50/60 dark:bg-neutral-900/30 p-4">
+                                            <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                                                <div class="min-w-36">
+                                                    <div class="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                                                        <CalendarDays class="w-3.5 h-3.5 text-neutral-400" />
+                                                        {day.date || `Hari ${day.day}`}
+                                                    </div>
+                                                    <div class="mt-1 text-xs text-neutral-500">
+                                                        {stateLabel(day.read_state)}
+                                                    </div>
+                                                </div>
+
+                                                <div class="flex-1 grid gap-3 md:grid-cols-2">
+                                                    <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-925 p-3">
+                                                        <div class="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">Data asli fingerprint</div>
+                                                        <div class="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <div class="text-xs text-neutral-500 mb-1">Jam masuk</div>
+                                                                <div class="font-mono font-semibold text-neutral-900 dark:text-white">
+                                                                    {rawCheckIn(day) || "Tidak ada"}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div class="text-xs text-neutral-500 mb-1">Jam pulang</div>
+                                                                <div class="font-mono font-semibold text-neutral-900 dark:text-white">
+                                                                    {rawCheckOut(day) || "Tidak ada"}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {#if day.times.length > 2}
+                                                            <div class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                                                                File memiliki waktu tambahan: {day.times.slice(2).join(", ")}
+                                                            </div>
                                                         {/if}
-                                                    </td>
-                                                </tr>
-                                            {/each}
-                                        </tbody>
-                                    </table>
+                                                    </div>
+
+                                                    <div class="rounded-lg border {draft.applied ? 'border-brand-400/40 bg-brand-400/5' : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-925'} p-3">
+                                                        <div class="flex items-center justify-between gap-2 mb-2">
+                                                            <div class="text-[11px] uppercase tracking-wider text-neutral-500">Hasil setelah koreksi</div>
+                                                            {#if draft.applied}
+                                                                <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
+                                                                    <CheckCircle2 class="w-3.5 h-3.5" />
+                                                                    Dikoreksi manual
+                                                                </span>
+                                                            {/if}
+                                                        </div>
+                                                        <div class="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <div class="text-xs text-neutral-500 mb-1">Jam masuk</div>
+                                                                <div class="font-mono font-semibold text-neutral-900 dark:text-white">
+                                                                    {draft.applied ? (draft.check_in || "Tidak ada") : (rawCheckIn(day) || "Tidak ada")}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div class="text-xs text-neutral-500 mb-1">Jam pulang</div>
+                                                                <div class="font-mono font-semibold text-neutral-900 dark:text-white">
+                                                                    {draft.applied ? (draft.check_out || "Tidak ada") : (rawCheckOut(day) || "Tidak ada")}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {#if draft.applied}
+                                                            <div class="mt-2 text-xs text-neutral-500">
+                                                                Alasan: <span class="text-neutral-700 dark:text-neutral-300">{draft.reason}</span>
+                                                            </div>
+                                                        {/if}
+                                                    </div>
+                                                </div>
+
+                                                <div class="lg:w-36 lg:text-right">
+                                                    {#if !draft.editing}
+                                                        <button
+                                                            type="button"
+                                                            onclick={() => startCorrection(person, day)}
+                                                            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:border-brand-400/60 hover:text-brand-600 dark:hover:text-brand-400"
+                                                        >
+                                                            <Pencil class="w-4 h-4" />
+                                                            {draft.applied ? "Edit koreksi" : "Koreksi"}
+                                                        </button>
+                                                    {/if}
+                                                </div>
+                                            </div>
+
+                                            {#if draft.editing}
+                                                <div class="mt-4 pt-4 border-t border-neutral-200 dark:border-white/[0.05]">
+                                                    <div class="grid gap-4 md:grid-cols-2">
+                                                        <label class="space-y-1.5">
+                                                            <span class="text-sm font-medium text-neutral-700 dark:text-neutral-300">Jam masuk</span>
+                                                            <input
+                                                                bind:value={draft.check_in}
+                                                                type="time"
+                                                                class="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2.5 text-neutral-900 dark:text-white outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/15"
+                                                            />
+                                                        </label>
+                                                        <label class="space-y-1.5">
+                                                            <span class="text-sm font-medium text-neutral-700 dark:text-neutral-300">Jam pulang</span>
+                                                            <input
+                                                                bind:value={draft.check_out}
+                                                                type="time"
+                                                                class="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2.5 text-neutral-900 dark:text-white outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/15"
+                                                            />
+                                                            <span class="block text-xs text-neutral-500">Jam kedua pada fingerprint diperlakukan sebagai jam pulang.</span>
+                                                        </label>
+                                                    </div>
+
+                                                    <label class="block mt-4 space-y-1.5">
+                                                        <span class="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                                            Alasan koreksi <span class="text-red-500">*</span>
+                                                        </span>
+                                                        <textarea
+                                                            bind:value={draft.reason}
+                                                            rows="2"
+                                                            placeholder="Contoh: lupa fingerprint pulang, sudah dikonfirmasi admin."
+                                                            class="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2.5 text-neutral-900 dark:text-white outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/15 resize-y"
+                                                        ></textarea>
+                                                    </label>
+
+                                                    {#if draft.error}
+                                                        <div class="mt-2 text-sm font-medium text-red-600 dark:text-red-400">{draft.error}</div>
+                                                    {/if}
+
+                                                    <div class="mt-4 flex flex-wrap justify-end gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onclick={() => cancelCorrection(person, day)}
+                                                            class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-300"
+                                                        >
+                                                            {#if draft.applied}
+                                                                <RotateCcw class="w-4 h-4" />
+                                                                Kembalikan ke data asli
+                                                            {:else}
+                                                                <X class="w-4 h-4" />
+                                                                Batal
+                                                            {/if}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onclick={() => applyCorrection(person, day)}
+                                                            class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400 px-4 py-2 text-sm font-semibold text-white"
+                                                        >
+                                                            <Save class="w-4 h-4" />
+                                                            Terapkan koreksi
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            {/if}
+                                        </article>
+                                    {/each}
                                 </div>
                             </div>
                         </details>
