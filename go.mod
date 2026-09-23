@@ -3,6 +3,7 @@ module github.com/maulanashalihin/laju-go
 go 1.26.1
 
 require (
+	github.com/Standard-Innovation/xls v0.3.0
 	github.com/a-h/templ v0.3.1020
 	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/joho/godotenv v1.5.1
