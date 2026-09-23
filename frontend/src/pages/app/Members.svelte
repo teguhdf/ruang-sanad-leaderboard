@@ -36,7 +36,7 @@
         { value: "sun", label: "Min" },
     ];
 
-    const memberForm = useForm("MemberForm", {
+    const memberForm = useForm({
         name: "",
         division: "",
         work_days: [] as string[],
