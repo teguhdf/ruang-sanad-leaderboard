@@ -12,13 +12,15 @@ import (
 
 type AppHandler struct {
 	userService    *services.UserService
+	memberService  *services.MemberService
 	store          *session.Store
 	inertiaService *services.InertiaService
 }
 
-func NewAppHandler(userService *services.UserService, store *session.Store, inertiaService *services.InertiaService) *AppHandler {
+func NewAppHandler(userService *services.UserService, memberService *services.MemberService, store *session.Store, inertiaService *services.InertiaService) *AppHandler {
 	return &AppHandler{
 		userService:    userService,
+		memberService:  memberService,
 		store:          store,
 		inertiaService: inertiaService,
 	}
