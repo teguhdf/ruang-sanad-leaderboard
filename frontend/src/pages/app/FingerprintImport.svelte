@@ -54,19 +54,31 @@
         return day.times[1] ?? "";
     }
 
-    function getCorrection(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
-        const key = correctionKey(person, day);
-        if (!corrections[key]) {
-            corrections[key] = {
-                check_in: rawCheckIn(day),
-                check_out: rawCheckOut(day),
-                reason: "",
-                editing: false,
-                applied: false,
-                error: "",
-            };
+    function makeCorrection(day: FingerprintDayPreview): CorrectionDraft {
+        return {
+            check_in: rawCheckIn(day),
+            check_out: rawCheckOut(day),
+            reason: "",
+            editing: false,
+            applied: false,
+            error: "",
+        };
+    }
+
+    function initializeCorrections(data: FingerprintPreview) {
+        const next: Record<string, CorrectionDraft> = {};
+
+        for (const person of data.people) {
+            for (const day of person.days) {
+                next[correctionKey(person, day)] = makeCorrection(day);
+            }
         }
-        return corrections[key];
+
+        corrections = next;
+    }
+
+    function getCorrection(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
+        return corrections[correctionKey(person, day)];
     }
 
     function isChanged(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
@@ -147,7 +159,9 @@
                 return;
             }
 
-            preview = payload as FingerprintPreview;
+            const parsedPreview = payload as FingerprintPreview;
+            initializeCorrections(parsedPreview);
+            preview = parsedPreview;
         } catch {
             errorMessage = "Tidak dapat terhubung ke server.";
         } finally {
