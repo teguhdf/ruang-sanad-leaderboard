@@ -10,6 +10,7 @@
 		X,
 		User,
 		Upload,
+		Users,
 	} from "lucide-svelte";
 	import DarkModeToggle from "@components/DarkModeToggle.svelte";
 	import Logo from "@components/Logo.svelte";
@@ -49,6 +50,13 @@
 			group: "dashboard",
 			show: true,
 			icon: LayoutDashboard,
+		},
+		{
+			href: "/app/members",
+			label: "Anggota Tim",
+			group: "members",
+			show: true,
+			icon: Users,
 		},
 		{
 			href: "/app/upload",
@@ -178,6 +186,8 @@
 			</h1>
 			{#if group === "dashboard"}
 				<p class="text-xs text-neutral-500 dark:text-neutral-400">Dashboard</p>
+			{:else if group === "members"}
+				<p class="text-xs text-neutral-500 dark:text-neutral-400">Anggota Tim</p>
 			{:else if group === "profile"}
 				<p class="text-xs text-neutral-500 dark:text-neutral-400">Settings</p>
 			{:else}
