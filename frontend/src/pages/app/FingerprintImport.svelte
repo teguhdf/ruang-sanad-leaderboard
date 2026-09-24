@@ -147,6 +147,8 @@
         loading = true;
         preview = null;
         errorMessage = "";
+        saveMessage = "";
+        saved = false;
         corrections = {};
 
         const formData = new FormData();
