@@ -79,3 +79,21 @@ export interface FingerprintPreview {
 		multiple_times: number;
 	};
 }
+
+
+export interface FingerprintImportHistory {
+	id: number;
+	file_name: string;
+	period_start: string;
+	period_end: string;
+	file_people: number;
+	matched: number;
+	unmatched: number;
+	total_slots: number;
+	two_times: number;
+	one_time: number;
+	empty: number;
+	multiple_times: number;
+	corrected_count: number;
+	created_at: string;
+}
