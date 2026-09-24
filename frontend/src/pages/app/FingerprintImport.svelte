@@ -3,6 +3,7 @@
     import { getCSRFToken } from "@lib/utils/csrf";
     import type {
         FingerprintDayPreview,
+        FingerprintImportHistory,
         FingerprintPersonPreview,
         FingerprintPreview,
         User,
@@ -23,6 +24,7 @@
 
     interface Props {
         user?: User;
+        imports?: FingerprintImportHistory[];
     }
 
     interface CorrectionDraft {
@@ -34,13 +36,17 @@
         error: string;
     }
 
-    let { user }: Props = $props();
+    let { user, imports: initialImports = [] }: Props = $props();
 
     let selectedFile = $state<File | null>(null);
     let preview = $state<FingerprintPreview | null>(null);
     let loading = $state(false);
+    let saving = $state(false);
     let errorMessage = $state("");
+    let saveMessage = $state("");
+    let saved = $state(false);
     let corrections = $state<Record<string, CorrectionDraft>>({});
+    let importHistory = $state<FingerprintImportHistory[]>(initialImports);
 
     function correctionKey(person: FingerprintPersonPreview, day: FingerprintDayPreview) {
         return `${person.fingerprint_id}:${day.date || day.day}`;
@@ -130,6 +136,8 @@
         selectedFile = input.files?.[0] ?? null;
         preview = null;
         errorMessage = "";
+        saveMessage = "";
+        saved = false;
         corrections = {};
     }
 
@@ -167,6 +175,82 @@
         } finally {
             loading = false;
         }
+    }
+
+
+    async function saveImport() {
+        if (!selectedFile || !preview || saving || saved) return;
+
+        if (Object.values(corrections).some((item) => item.editing)) {
+            errorMessage = "Selesaikan atau batalkan koreksi yang sedang diedit sebelum menyimpan.";
+            return;
+        }
+
+        const appliedCorrections: Array<{
+            fingerprint_id: string;
+            date: string;
+            check_in: string;
+            check_out: string;
+            reason: string;
+        }> = [];
+
+        for (const person of preview.people) {
+            for (const day of person.days) {
+                const draft = getCorrection(person, day);
+                if (!draft?.applied) continue;
+
+                appliedCorrections.push({
+                    fingerprint_id: person.fingerprint_id,
+                    date: day.date,
+                    check_in: draft.check_in,
+                    check_out: draft.check_out,
+                    reason: draft.reason,
+                });
+            }
+        }
+
+        saving = true;
+        errorMessage = "";
+        saveMessage = "";
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("corrections", JSON.stringify(appliedCorrections));
+
+        try {
+            const response = await fetch("/app/fingerprint/import", {
+                method: "POST",
+                headers: {
+                    "X-XSRF-TOKEN": getCSRFToken(),
+                },
+                body: formData,
+            });
+
+            const payload = await response.json();
+            if (!response.ok) {
+                errorMessage = payload?.error || "Import fingerprint gagal disimpan.";
+                return;
+            }
+
+            saveMessage = payload?.message || "Import fingerprint berhasil disimpan.";
+            saved = true;
+
+            const savedImport = payload?.import as FingerprintImportHistory | undefined;
+            if (savedImport && !importHistory.some((item) => item.id === savedImport.id)) {
+                importHistory = [savedImport, ...importHistory].slice(0, 10);
+            }
+        } catch {
+            errorMessage = "Tidak dapat terhubung ke server saat menyimpan import.";
+        } finally {
+            saving = false;
+        }
+    }
+
+    function formatImportedAt(value: string) {
+        if (!value) return "";
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return value;
+        return parsed.toLocaleString("id-ID");
     }
 
     function stateLabel(state: string) {
@@ -472,6 +556,68 @@
                     {/each}
                 </div>
             </section>
+
+            <section class="rounded-2xl border border-neutral-200/80 dark:border-white/[0.06] bg-white dark:bg-neutral-925/60 p-5 sm:p-6">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">Simpan hasil import</h2>
+                        <p class="mt-1 text-sm text-neutral-500 max-w-2xl">
+                            Data asli tetap disimpan sebagai evidence. Koreksi manual disimpan terpisah beserta alasannya. File .xls yang sama tidak akan membuat import duplikat.
+                        </p>
+                        {#if preview.summary.unmatched > 0}
+                            <p class="mt-2 text-sm text-amber-700 dark:text-amber-400">
+                                Ada {preview.summary.unmatched} orang yang belum matched. Record-nya tetap tersimpan sebagai evidence, tetapi belum terhubung ke anggota tim.
+                            </p>
+                        {/if}
+                    </div>
+
+                    <button
+                        type="button"
+                        onclick={saveImport}
+                        disabled={saving || saved || !selectedFile}
+                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400 px-5 py-3 font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    >
+                        <Save class="w-4 h-4" />
+                        {saving ? "Menyimpan..." : saved ? "Sudah disimpan" : "Simpan import"}
+                    </button>
+                </div>
+
+                {#if saveMessage}
+                    <div class="mt-4 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-700 dark:text-green-400">
+                        {saveMessage}
+                    </div>
+                {/if}
+            </section>
         {/if}
+
+        <section class="rounded-2xl border border-neutral-200/80 dark:border-white/[0.06] bg-white dark:bg-neutral-925/60 overflow-hidden">
+            <div class="p-5 sm:p-6 border-b border-neutral-200/80 dark:border-white/[0.05]">
+                <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">Riwayat import</h2>
+                <p class="mt-1 text-sm text-neutral-500">10 import fingerprint terbaru untuk akun ini.</p>
+            </div>
+
+            {#if importHistory.length === 0}
+                <div class="p-6 text-sm text-neutral-500">Belum ada import yang disimpan.</div>
+            {:else}
+                <div class="divide-y divide-neutral-200/80 dark:divide-white/[0.05]">
+                    {#each importHistory as item}
+                        <div class="p-5 sm:px-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="font-semibold text-neutral-900 dark:text-white truncate">{item.file_name}</div>
+                                <div class="mt-1 text-sm text-neutral-500">
+                                    {item.period_start} sampai {item.period_end} · {item.total_slots} slot
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500">
+                                <span>Matched {item.matched}</span>
+                                <span>Unmatched {item.unmatched}</span>
+                                <span>Koreksi {item.corrected_count}</span>
+                                <span>{formatImportedAt(item.created_at)}</span>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        </section>
     </div>
 </AppLayout>
