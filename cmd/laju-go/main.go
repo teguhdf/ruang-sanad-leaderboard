@@ -97,6 +97,7 @@ func main() {
 	})
 	userService := services.NewUserService(querier)
 	memberService := services.NewMemberService(querier)
+	fingerprintImportService := services.NewFingerprintImportService(querier)
 
 	// Initialize Asset service (for production builds with hashed filenames)
 	assetService := services.NewAssetService("./dist/.vite/manifest.json", ".vite-port", cfg.IsDevelopment())
@@ -132,7 +133,7 @@ func main() {
 	routeHandlers := routes.Handlers{
 		Public: handlers.NewPublicHandler(authService, userService, inertiaService, assetService),
 		Auth:   handlers.NewAuthHandler(authService, sessionStore, inertiaService, mailerService),
-		App:    handlers.NewAppHandler(userService, memberService, sessionStore, inertiaService),
+		App:    handlers.NewAppHandler(userService, memberService, fingerprintImportService, sessionStore, inertiaService),
 		Upload: uploadHandler,
 	}
 
