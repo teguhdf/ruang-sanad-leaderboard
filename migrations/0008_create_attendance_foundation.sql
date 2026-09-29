@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS member_attendance_profiles (
     member_id INTEGER NOT NULL UNIQUE,
     linked_user_id INTEGER,
     work_mode TEXT NOT NULL DEFAULT 'onsite',
-    schedule_type TEXT NOT NULL DEFAULT 'fixed',
+    schedule_type TEXT NOT NULL DEFAULT 'shift',
     required_daily_minutes INTEGER NOT NULL DEFAULT 480,
     weekly_target_minutes INTEGER NOT NULL DEFAULT 2640,
     attendance_enabled BOOLEAN NOT NULL DEFAULT TRUE,
