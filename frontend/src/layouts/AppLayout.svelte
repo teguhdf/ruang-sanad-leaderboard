@@ -1,493 +1,187 @@
 <script lang="ts">
 	import type { Snippet } from "svelte";
-	import { fly, fade } from "svelte/transition";
+	import { fade, fly } from "svelte/transition";
 	import { inertia, router } from "@inertiajs/svelte";
 	import {
+		CalendarClock,
+		ChevronRight,
+		FileSpreadsheet,
 		LayoutDashboard,
-		Settings,
 		LogOut,
 		Menu,
+		Settings,
+		UsersRound,
 		X,
-		User,
-		Upload,
-		Users,
-		FileSpreadsheet,
 	} from "lucide-svelte";
 	import DarkModeToggle from "@components/DarkModeToggle.svelte";
-	import Logo from "@components/Logo.svelte";
 	import type { User as UserType } from "@lib/types";
 
-	/**
-	 * AppLayout wraps every authenticated page with:
-	 * - Desktop sidebar (logo, nav, user card)
-	 * - Desktop top header with breadcrumbs & user menu
-	 * - Mobile top bar + drawer
-	 * - Logout + dark-mode toggles
-	 *
-	 * Pages render their content as children:
-	 *   <AppLayout user={user} group="dashboard">
-	 *     <h1>Page content...</h1>
-	 *   </AppLayout>
-	 */
 	interface Props {
 		user?: UserType;
-		/** Active nav group: "dashboard" | "profile" | "" */
 		group?: string;
 		children: Snippet;
 	}
 
 	let { user, group = "", children }: Props = $props();
-
-	let isMenuOpen = $state(false);
-	let isDesktopUserMenuOpen = $state(false);
-	let isUserMenuOpen = $state(false);
-
-
+	let mobileOpen = $state(false);
 
 	const menuLinks = [
-		{
-			href: "/app",
-			label: "Dashboard",
-			group: "dashboard",
-			show: true,
-			icon: LayoutDashboard,
-		},
-		{
-			href: "/app/members",
-			label: "Anggota Tim",
-			group: "members",
-			show: true,
-			icon: Users,
-		},
-		{
-			href: "/app/fingerprint",
-			label: "Import Fingerprint",
-			group: "fingerprint",
-			show: true,
-			icon: FileSpreadsheet,
-		},
-		{
-			href: "/app/upload",
-			label: "Upload Test",
-			group: "upload",
-			show: true,
-			icon: Upload,
-		},
-		{
-			href: "/app/profile",
-			label: "Settings",
-			group: "profile",
-			show: true,
-			icon: Settings,
-		},
+		{ href: "/app", label: "Dashboard", group: "dashboard", icon: LayoutDashboard },
+		{ href: "/app/members", label: "Anggota Tim", group: "members", icon: UsersRound },
+		{ href: "/app/attendance", label: "Attendance", group: "attendance", icon: CalendarClock },
+		{ href: "/app/fingerprint", label: "Fingerprint", group: "fingerprint", icon: FileSpreadsheet },
+		{ href: "/app/profile", label: "Pengaturan", group: "profile", icon: Settings },
 	];
 
-	let desktopMenuEl = $state<HTMLDivElement>();
+	function pageTitle() {
+		return menuLinks.find((item) => item.group === group)?.label ?? "Ruang Sanad Ops";
+	}
 
 	function handleLogout() {
 		router.post("/logout");
 	}
 
-	// Close desktop dropdown on click outside
 	$effect(() => {
-		if (!isDesktopUserMenuOpen || typeof document === "undefined") return;
-
-		function onDocumentClick(e: MouseEvent) {
-			if (desktopMenuEl && !desktopMenuEl.contains(e.target as Node)) {
-				isDesktopUserMenuOpen = false;
-			}
-		}
-
-		// Use setTimeout to avoid the same click that opened it from closing it
-		const timer = setTimeout(() => {
-			document.addEventListener("click", onDocumentClick);
-		}, 0);
-
+		if (typeof document === "undefined") return;
+		document.body.style.overflow = mobileOpen ? "hidden" : "";
 		return () => {
-			clearTimeout(timer);
-			document.removeEventListener("click", onDocumentClick);
+			document.body.style.overflow = "";
 		};
-	});
-
-	// Prevent body scroll when mobile menu is open
-	$effect(() => {
-		if (typeof document !== "undefined") {
-			document.body.style.overflow = isMenuOpen ? "hidden" : "unset";
-		}
 	});
 </script>
 
-<!-- Desktop Header -->
-<header
-	class="hidden xl:flex fixed top-0 left-72 right-0 h-16 z-40 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200/80 dark:border-white/[0.04] items-center justify-end px-6 gap-3"
->
-	<DarkModeToggle />
-
-	{#if user && user.id}
-		<div bind:this={desktopMenuEl} class="relative" role="menu">
-			<button
-				onclick={() => (isDesktopUserMenuOpen = !isDesktopUserMenuOpen)}
-				class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-			>
-				{#if user.avatar}
-					<img src={user.avatar} alt={user.name} class="w-8 h-8 rounded-full object-cover ring-2 ring-neutral-300 dark:ring-neutral-700 shrink-0" />
-				{:else}
-					<div
-						class="w-8 h-8 rounded-full bg-brand-600 dark:bg-brand-500 flex items-center justify-center text-white font-bold text-sm ring-2 ring-neutral-300 dark:ring-neutral-700 shrink-0"
-					>
-						{user.name.charAt(0).toUpperCase()}
-					</div>
-				{/if}
-				<span class="text-sm font-semibold text-neutral-900 dark:text-white">{user.name}</span>
-			</button>
-
-			{#if isDesktopUserMenuOpen}
-				<div
-					class="absolute right-0 mt-2 w-56 bg-white dark:bg-neutral-925 rounded-xl shadow-xl border border-neutral-200/80 dark:border-white/[0.06] overflow-hidden ring-1 ring-black/10 dark:ring-white/10"
-					transition:fly={{ y: 10, duration: 200 }}
-				>
-					<div class="px-4 py-3 border-b border-neutral-200/80 dark:border-white/[0.04]">
-						<p class="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Signed in as</p>
-						<p class="text-sm font-semibold text-neutral-900 dark:text-white mt-0.5">{user.name}</p>
-						<p class="text-xs text-neutral-500 dark:text-neutral-400 truncate">{user.email}</p>
-					</div>
-					<div class="p-2">
-						<a
-							href="/app/profile"
-							use:inertia
-							onclick={() => (isDesktopUserMenuOpen = false)}
-							class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white transition-colors"
-						>
-							<User size="16" />
-							Profile
-						</a>
-					</div>
-					<div class="p-2 border-t border-neutral-200/80 dark:border-white/[0.04]">
-						<button
-							onclick={() => { isDesktopUserMenuOpen = false; handleLogout(); }}
-							class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 dark:text-red-400 hover:bg-red-500/10 transition-colors"
-						>
-							<LogOut size="16" />
-							Logout
-						</button>
-					</div>
-				</div>
-			{/if}
-		</div>
-	{/if}
-</header>
-
-<!-- Desktop Sidebar -->
-<aside
-	class="hidden xl:flex flex-col fixed left-0 top-0 h-full w-72 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-r border-neutral-200/80 dark:border-white/[0.04] z-30 transition-all duration-300"
->
-	<!-- Logo -->
-	<a
-		href="/app"
-		use:inertia
-		class="flex items-center gap-3 px-6 py-6 hover:opacity-80 transition-opacity no-underline"
-	>
-		<Logo size={36} />
-		<div>
-			<h1 class="text-xl font-black italic text-neutral-900 dark:text-white">
-				Laju<span class="text-brand-400">Go</span>
-			</h1>
-			{#if group === "dashboard"}
-				<p class="text-xs text-neutral-500 dark:text-neutral-400">Dashboard</p>
-			{:else if group === "members"}
-				<p class="text-xs text-neutral-500 dark:text-neutral-400">Anggota Tim</p>
-			{:else if group === "fingerprint"}
-				<p class="text-xs text-neutral-500 dark:text-neutral-400">Import Fingerprint</p>
-			{:else if group === "profile"}
-				<p class="text-xs text-neutral-500 dark:text-neutral-400">Settings</p>
-			{:else}
-				<p class="text-xs text-neutral-500 dark:text-neutral-400">App</p>
-			{/if}
-		</div>
-	</a>
-
-	<!-- Navigation -->
-	<nav class="flex-1 px-4 py-6 space-y-2">
-		{#each menuLinks.filter((item) => item.show) as item}
-			{@const Icon = item.icon}
-			<a
-				href={item.href}
-				use:inertia
-				class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group {item.group ===
-				group
-					? 'bg-brand-400/10 text-brand-600 dark:text-brand-400 border border-brand-400/20'
-					: 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/50 border border-transparent'}"
-			>
-				<Icon
-					size="20"
-					class={item.group === group
-						? 'text-brand-400'
-						: 'text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white'}
-					stroke-width="2"
-				/>
-				{item.label}
-				{#if item.group === group}
-					<div class="ml-auto w-1.5 h-1.5 rounded-full bg-brand-400"></div>
-				{/if}
-			</a>
-		{/each}
-	</nav>
-
-	{#if user && user.id}
-		<div class="p-3 border-t border-neutral-200/80 dark:border-white/[0.04] space-y-2">
-			<div class="flex items-center gap-2.5">
-				{#if user.avatar}
-					<img src={user.avatar} alt={user.name} class="w-7 h-7 rounded-full object-cover ring-2 ring-neutral-300 dark:ring-neutral-700 shrink-0" />
-				{:else}
-					<div
-						class="w-7 h-7 rounded-full bg-brand-600 dark:bg-brand-500 flex items-center justify-center text-white font-bold text-xs ring-2 ring-neutral-300 dark:ring-neutral-700 shrink-0"
-					>
-						{user.name.charAt(0).toUpperCase()}
-					</div>
-				{/if}
-				<div class="flex-1 min-w-0">
-					<p class="text-xs font-semibold text-neutral-900 dark:text-white truncate leading-normal">
-						{user.name}
-					</p>
-					<p class="text-[11px] text-neutral-500 dark:text-neutral-400 truncate leading-normal">
-						{user.email || "Member"}
-					</p>
-				</div>
+<div class="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50">
+	<!-- Desktop navigation drawer -->
+	<aside class="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-neutral-200/80 bg-white/95 px-3 py-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-neutral-925/95 lg:flex">
+		<a href="/app" use:inertia class="mb-5 flex items-center gap-3 rounded-2xl px-3 py-3 no-underline transition-colors hover:bg-neutral-100 dark:hover:bg-white/[0.05]">
+			<div class="grid h-11 w-11 place-items-center rounded-2xl bg-brand-600 text-sm font-black tracking-tight text-white shadow-sm">RS</div>
+			<div class="min-w-0">
+				<div class="truncate text-[15px] font-bold tracking-tight text-neutral-900 dark:text-white">Ruang Sanad Ops</div>
+				<div class="mt-0.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Team Operations</div>
 			</div>
-
-			<button
-				onclick={handleLogout}
-				class="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-red-500 dark:text-red-400 hover:bg-red-500/10 transition-colors"
-			>
-				<LogOut size="14" />
-				Logout
-			</button>
-		</div>
-	{/if}
-</aside>
-
-<!-- Mobile Header -->
-<header
-	class="xl:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-neutral-950 backdrop-blur-xl border-b border-neutral-200/80 dark:border-white/[0.04]"
->
-	<div class="flex items-center justify-between px-4 h-16">
-		<a href="/app" use:inertia class="flex items-center gap-2">
-			<Logo size={28} />
-			<span class="text-lg font-black italic text-neutral-900 dark:text-white">
-				Laju<span class="text-brand-400">Go</span>
-			</span>
 		</a>
 
-		<div class="flex items-center gap-2">
-			{#if user && user.id}
-				<div class="relative" role="menu">
-					<button
-						onclick={() => (isUserMenuOpen = !isUserMenuOpen)}
-						class="w-9 h-9 rounded-full ring-2 ring-neutral-300 dark:ring-neutral-700 overflow-hidden"
-					>
-						{#if user.avatar}
-							<img src={user.avatar} alt={user.name} class="w-full h-full object-cover" />
-						{:else}
-							<div class="w-full h-full bg-brand-600 dark:bg-brand-500 flex items-center justify-center text-white font-bold text-sm">
-								{user.name.charAt(0).toUpperCase()}
-							</div>
-						{/if}
-					</button>
-
-					{#if isUserMenuOpen}
-						<div
-							class="fixed inset-0 z-10"
-							role="presentation"
-							onclick={() => (isUserMenuOpen = false)}
-						></div>
-						<div
-							class="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-925 rounded-xl shadow-xl border border-neutral-200/80 dark:border-white/[0.06] overflow-hidden ring-1 ring-black/10 dark:ring-white/10"
-							transition:fly={{ y: 10, duration: 200 }}
-						>
-							<div
-								class="p-3 border-b border-neutral-200/80 dark:border-white/[0.04]"
-							>
-								<p
-									class="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase"
-								>
-									Signed in as
-								</p>
-								<p
-									class="text-sm font-semibold text-neutral-900 dark:text-white truncate"
-								>
-									{user.name}
-								</p>
-							</div>
-							<div class="p-2">
-								<a
-									href="/app/profile"
-									use:inertia
-									class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white transition-colors"
-								>
-									<User size="16" />
-									Profile
-								</a>
-							</div>
-							<div
-								class="p-2 border-t border-neutral-200/80 dark:border-white/[0.04]"
-							>
-								<button
-									onclick={handleLogout}
-									class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 dark:text-red-400 hover:bg-red-500/10 transition-colors"
-								>
-									<LogOut size="16" />
-									Logout
-								</button>
-							</div>
-						</div>
-					{/if}
-				</div>
-			{:else}
+		<div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">Workspace</div>
+		<nav class="grid gap-1.5">
+			{#each menuLinks as item}
+				{@const Icon = item.icon}
 				<a
-					href="/login"
+					href={item.href}
 					use:inertia
-					class="px-4 py-2 rounded-lg bg-neutral-200/80 dark:bg-neutral-800 hover:bg-neutral-300/80 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-sm font-medium transition-colors"
+					class="group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-semibold transition-all {item.group === group
+						? 'bg-brand-100 text-brand-800 dark:bg-brand-900/55 dark:text-brand-100'
+						: 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-white/[0.05] dark:hover:text-white'}"
 				>
-					Sign In
+					<div class="grid h-8 w-8 place-items-center rounded-xl {item.group === group ? 'bg-white/65 dark:bg-white/[0.08]' : 'bg-transparent'}">
+						<Icon size="19" stroke-width="2" />
+					</div>
+					<span>{item.label}</span>
+					{#if item.group === group}
+						<ChevronRight size="16" class="ml-auto opacity-70" />
+					{/if}
 				</a>
-			{/if}
+			{/each}
+		</nav>
 
-			<button
-				onclick={() => (isMenuOpen = !isMenuOpen)}
-				class="p-2 rounded-lg bg-neutral-200/80 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
-				aria-label="Menu"
-			>
-				{#if isMenuOpen}
-					<X size="20" />
+		<div class="mt-auto rounded-2xl bg-neutral-100/80 p-3 dark:bg-white/[0.04]">
+			<div class="flex items-center gap-3">
+				{#if user?.avatar}
+					<img src={user.avatar} alt={user.name} class="h-10 w-10 rounded-2xl object-cover" />
 				{:else}
-					<Menu size="20" />
+					<div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-sm font-extrabold text-white">
+						{user?.name?.charAt(0).toUpperCase() ?? "U"}
+					</div>
 				{/if}
-			</button>
-		</div>
-	</div>
-</header>
-
-<!-- Mobile Menu Drawer -->
-{#if isMenuOpen}
-	<div class="xl:hidden fixed inset-0 z-50">
-		<button
-			class="absolute inset-0 w-full h-full bg-neutral-900/50 backdrop-blur-sm"
-			transition:fade={{ duration: 200 }}
-			onclick={() => (isMenuOpen = false)}
-			aria-label="Close menu"
-		></button>
-
-		<div
-			class="absolute right-0 top-0 h-full w-[85%] max-w-[320px] bg-white dark:bg-neutral-925 shadow-2xl border-l border-neutral-200/80 dark:border-white/[0.04] flex flex-col"
-			transition:fly={{ x: 300, duration: 400, opacity: 1 }}
-		>
-			<!-- Header -->
-			<div
-				class="flex items-center justify-between p-4 border-b border-neutral-200/80 dark:border-white/[0.04] bg-neutral-50 dark:bg-neutral-925/50"
-			>
-				<span class="text-base font-bold text-neutral-900 dark:text-white">Menu</span>
-				<button
-					onclick={() => (isMenuOpen = false)}
-					class="p-2 rounded-lg hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 transition-colors"
-				>
-					<X size="20" />
+				<div class="min-w-0 flex-1">
+					<div class="truncate text-xs font-bold text-neutral-900 dark:text-white">{user?.name ?? "User"}</div>
+					<div class="truncate text-[10px] text-neutral-500 dark:text-neutral-400">{user?.email ?? ""}</div>
+				</div>
+			</div>
+			<div class="mt-3 flex items-center gap-2">
+				<div class="flex-1"><DarkModeToggle /></div>
+				<button type="button" onclick={handleLogout} class="grid h-9 w-9 place-items-center rounded-xl text-error transition-colors hover:bg-error/10" aria-label="Logout">
+					<LogOut size="17" />
 				</button>
 			</div>
-
-			<!-- Navigation -->
-			<div
-				class="flex-1 overflow-y-auto p-4 space-y-2 bg-white dark:bg-neutral-925"
-			>
-				{#each menuLinks.filter((item) => item.show) as item}
-					{@const Icon = item.icon}
-					<a
-						href={item.href}
-						use:inertia
-						class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all {item.group ===
-						group
-							? 'bg-brand-400/10 text-brand-600 dark:text-brand-400 border border-brand-400/20'
-							: 'text-neutral-700 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/50 border border-transparent'}"
-					>
-						<Icon size="20" stroke-width="2" />
-						{item.label}
-					</a>
-				{/each}
-			</div>
-
-			<!-- Footer -->
-			{#if user}
-				<div
-					class="p-4 border-t border-neutral-200/80 dark:border-white/[0.04] bg-neutral-50 dark:bg-neutral-925/50"
-				>
-					<div
-						class="bg-neutral-100/50 dark:bg-neutral-800/50 rounded-xl p-4 border border-neutral-200/80 dark:border-white/[0.06] mb-3"
-					>
-						<div class="flex items-center gap-3">
-							{#if user.avatar}
-								<img src={user.avatar} alt={user.name} class="w-10 h-10 rounded-full object-cover" />
-							{:else}
-								<div
-									class="w-10 h-10 rounded-full bg-brand-600 dark:bg-brand-500 flex items-center justify-center text-white font-bold text-sm"
-								>
-									{user.name.charAt(0).toUpperCase()}
-								</div>
-							{/if}
-							<div class="flex-1 min-w-0">
-								<p
-									class="text-sm font-semibold text-neutral-900 dark:text-white truncate"
-								>
-									{user.name}
-								</p>
-								<p
-									class="text-xs text-neutral-500 dark:text-neutral-400 truncate"
-								>
-									{user.email || "Member"}
-								</p>
-							</div>
-						</div>
-					</div>
-					<div class="flex items-center gap-2">
-						<DarkModeToggle />
-						<button
-							onclick={handleLogout}
-							class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-400 font-medium transition-colors"
-						>
-							<LogOut size="18" />
-							Logout
-						</button>
-					</div>
-				</div>
-			{:else}
-				<div
-					class="p-4 border-t border-neutral-200/80 dark:border-white/[0.04] bg-neutral-50 dark:bg-neutral-925/50 space-y-2"
-				>
-					<a
-						href="/login"
-						use:inertia
-						class="block w-full px-4 py-3 rounded-lg bg-neutral-200/80 dark:bg-neutral-800 hover:bg-neutral-300/80 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-medium transition-colors text-center"
-					>
-						Sign In
-					</a>
-					<a
-						href="/register"
-						use:inertia
-						class="block w-full px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-all text-center dark:bg-brand-500 dark:hover:bg-brand-400 shadow-lg shadow-brand-600/25"
-					>
-						Get Started
-					</a>
-				</div>
-			{/if}
 		</div>
+	</aside>
+
+	<!-- Mobile top app bar -->
+	<header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutral-200/80 bg-neutral-50/92 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-neutral-950/92 lg:hidden">
+		<button type="button" onclick={() => (mobileOpen = true)} class="grid h-10 w-10 place-items-center rounded-full hover:bg-neutral-200/70 dark:hover:bg-white/[0.06]" aria-label="Buka menu">
+			<Menu size="21" />
+		</button>
+		<div class="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-xs font-black text-white">RS</div>
+		<div class="min-w-0 flex-1">
+			<div class="truncate text-sm font-bold">{pageTitle()}</div>
+			<div class="text-[10px] text-neutral-500">Ruang Sanad Ops</div>
+		</div>
+		<DarkModeToggle />
+	</header>
+
+	{#if mobileOpen}
+		<div class="fixed inset-0 z-50 lg:hidden">
+			<button type="button" class="absolute inset-0 bg-black/35 backdrop-blur-[2px]" onclick={() => (mobileOpen = false)} aria-label="Tutup menu" transition:fade={{ duration: 140 }}></button>
+			<aside class="absolute inset-y-0 left-0 flex w-[min(86vw,320px)] flex-col bg-white p-4 shadow-2xl dark:bg-neutral-925" transition:fly={{ x: -24, duration: 190 }}>
+				<div class="mb-5 flex items-center gap-3 px-2 py-2">
+					<div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-xs font-black text-white">RS</div>
+					<div class="flex-1">
+						<div class="text-sm font-bold">Ruang Sanad Ops</div>
+						<div class="text-[10px] text-neutral-500">Team Operations</div>
+					</div>
+					<button type="button" onclick={() => (mobileOpen = false)} class="grid h-9 w-9 place-items-center rounded-full hover:bg-neutral-100 dark:hover:bg-white/[0.05]" aria-label="Tutup menu">
+						<X size="20" />
+					</button>
+				</div>
+
+				<nav class="grid gap-1.5">
+					{#each menuLinks as item}
+						{@const Icon = item.icon}
+						<a
+							href={item.href}
+							use:inertia
+							onclick={() => (mobileOpen = false)}
+							class="flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-semibold {item.group === group
+								? 'bg-brand-100 text-brand-800 dark:bg-brand-900/55 dark:text-brand-100'
+								: 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/[0.05]'}"
+						>
+							<Icon size="19" />
+							{item.label}
+						</a>
+					{/each}
+				</nav>
+
+				<div class="mt-auto rounded-2xl bg-neutral-100 p-3 dark:bg-white/[0.04]">
+					<div class="text-xs font-bold">{user?.name ?? "User"}</div>
+					<div class="mt-0.5 truncate text-[10px] text-neutral-500">{user?.email ?? ""}</div>
+					<button type="button" onclick={handleLogout} class="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-error/10 px-4 text-xs font-bold text-error">
+						<LogOut size="16" /> Logout
+					</button>
+				</div>
+			</aside>
+		</div>
+	{/if}
+
+	<div class="lg:pl-64">
+		<header class="sticky top-0 z-20 hidden h-16 items-center border-b border-neutral-200/80 bg-neutral-50/90 px-7 backdrop-blur-xl dark:border-white/[0.06] dark:bg-neutral-950/90 lg:flex">
+			<div>
+				<div class="text-sm font-bold tracking-tight text-neutral-900 dark:text-white">{pageTitle()}</div>
+				<div class="mt-0.5 text-[10px] font-medium text-neutral-500">Ruang Sanad · Team Operations</div>
+			</div>
+			<div class="ml-auto flex items-center gap-2">
+				<DarkModeToggle />
+				<div class="ml-1 h-8 w-px bg-neutral-200 dark:bg-white/[0.06]"></div>
+				<div class="flex items-center gap-2 rounded-full bg-white px-2.5 py-1.5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06]">
+					<div class="grid h-7 w-7 place-items-center rounded-full bg-brand-600 text-[10px] font-extrabold text-white">
+						{user?.name?.charAt(0).toUpperCase() ?? "U"}
+					</div>
+					<span class="max-w-36 truncate pr-1 text-xs font-bold">{user?.name ?? "User"}</span>
+				</div>
+			</div>
+		</header>
+
+		<main class="min-h-[calc(100vh-4rem)]">
+			{@render children()}
+		</main>
 	</div>
-{/if}
-
-<!-- Desktop spacer for header -->
-<div class="hidden xl:block h-16"></div>
-
-<!-- Mobile spacer -->
-<div class="xl:hidden h-16"></div>
-
-<!-- Page Content -->
-<div class="min-h-screen bg-neutral-50 dark:bg-neutral-950 xl:ml-72">
-	{@render children()}
 </div>
