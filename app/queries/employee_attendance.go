@@ -10,11 +10,15 @@ import (
 )
 
 var (
-	ErrEmployeeProfileNotFound = errors.New("employee attendance profile not found")
+	ErrEmployeeProfileNotFound          = errors.New("employee attendance profile not found")
 	ErrActiveAttendanceSessionNotFound = errors.New("active attendance session not found")
-	ErrAdjustmentRequestNotFound = errors.New("attendance adjustment request not found")
-	ErrOvertimeRequestNotFound = errors.New("overtime request not found")
+	ErrAdjustmentRequestNotFound       = errors.New("attendance adjustment request not found")
+	ErrOvertimeRequestNotFound         = errors.New("overtime request not found")
 )
+
+type attendanceTxBeginner interface {
+	BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+}
 
 func (q *Querier) GetEmployeeAttendanceIdentity(ctx context.Context, userID int64) (models.EmployeeAttendanceIdentity, error) {
 	var identity models.EmployeeAttendanceIdentity
@@ -94,6 +98,7 @@ func (q *Querier) MarkStaleActiveSessionsIncomplete(ctx context.Context, memberI
 
 func (q *Querier) GetActiveAttendanceSession(ctx context.Context, memberID int64) (*models.AttendanceSession, error) {
 	var session models.AttendanceSession
+	var checkOut sql.NullTime
 	err := q.db.QueryRowContext(ctx, `
 		SELECT id, member_id, work_date, location_mode, check_in_at,
 		       check_out_at, status, source
@@ -106,7 +111,7 @@ func (q *Querier) GetActiveAttendanceSession(ctx context.Context, memberID int64
 		&session.WorkDate,
 		&session.LocationMode,
 		&session.CheckInAt,
-		&session.CheckOutAt,
+		&checkOut,
 		&session.Status,
 		&session.Source,
 	)
@@ -116,11 +121,16 @@ func (q *Querier) GetActiveAttendanceSession(ctx context.Context, memberID int64
 	if err != nil {
 		return nil, err
 	}
+	if checkOut.Valid {
+		v := checkOut.Time
+		session.CheckOutAt = &v
+	}
 	return &session, nil
 }
 
 func (q *Querier) CreateAttendanceSession(ctx context.Context, ownerUserID, memberID, userID int64, workDate, locationMode string, checkIn time.Time, source string) (*models.AttendanceSession, error) {
 	var session models.AttendanceSession
+	var checkOut sql.NullTime
 	err := q.db.QueryRowContext(ctx, `
 		INSERT INTO attendance_sessions (
 			owner_user_id, member_id, user_id, work_date, location_mode,
@@ -134,12 +144,16 @@ func (q *Querier) CreateAttendanceSession(ctx context.Context, ownerUserID, memb
 		&session.WorkDate,
 		&session.LocationMode,
 		&session.CheckInAt,
-		&session.CheckOutAt,
+		&checkOut,
 		&session.Status,
 		&session.Source,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if checkOut.Valid {
+		v := checkOut.Time
+		session.CheckOutAt = &v
 	}
 	return &session, nil
 }
@@ -204,21 +218,21 @@ func (q *Querier) ListAttendanceSessions(ctx context.Context, memberID int64, st
 	return items, rows.Err()
 }
 
-func (q *Querier) CreateAttendanceAdjustmentRequest(ctx context.Context, ownerUserID, memberID, userID int64, workDate string, checkIn, checkOut time.Time, reason string) error {
+func (q *Querier) CreateAttendanceAdjustmentRequest(ctx context.Context, ownerUserID, memberID, userID int64, workDate, locationMode string, checkIn, checkOut time.Time, reason string) error {
 	_, err := q.db.ExecContext(ctx, `
 		INSERT INTO attendance_adjustment_requests (
-			owner_user_id, member_id, requested_by_user_id, work_date,
+			owner_user_id, member_id, requested_by_user_id, work_date, location_mode,
 			requested_check_in, requested_check_out, reason
-		) VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, ownerUserID, memberID, userID, workDate, checkIn.UTC(), checkOut.UTC(), reason)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, ownerUserID, memberID, userID, workDate, locationMode, checkIn.UTC(), checkOut.UTC(), reason)
 	return err
 }
 
 func (q *Querier) ListAttendanceAdjustmentsByMember(ctx context.Context, memberID int64, limit int) ([]models.AttendanceAdjustmentRequest, error) {
 	rows, err := q.db.QueryContext(ctx, `
-		SELECT r.id, r.member_id, m.name, r.work_date, r.requested_check_in,
-		       r.requested_check_out, r.reason, r.status, r.review_note,
-		       r.reviewed_at, r.created_at
+		SELECT r.id, r.member_id, m.name, r.work_date, r.location_mode,
+		       r.requested_check_in, r.requested_check_out, r.reason, r.status,
+		       r.review_note, r.reviewed_at, r.created_at
 		FROM attendance_adjustment_requests r
 		JOIN members m ON m.id = r.member_id
 		WHERE r.member_id = ?
@@ -234,9 +248,9 @@ func (q *Querier) ListAttendanceAdjustmentsByMember(ctx context.Context, memberI
 
 func (q *Querier) ListPendingAttendanceAdjustmentsByOwner(ctx context.Context, ownerUserID int64) ([]models.AttendanceAdjustmentRequest, error) {
 	rows, err := q.db.QueryContext(ctx, `
-		SELECT r.id, r.member_id, m.name, r.work_date, r.requested_check_in,
-		       r.requested_check_out, r.reason, r.status, r.review_note,
-		       r.reviewed_at, r.created_at
+		SELECT r.id, r.member_id, m.name, r.work_date, r.location_mode,
+		       r.requested_check_in, r.requested_check_out, r.reason, r.status,
+		       r.review_note, r.reviewed_at, r.created_at
 		FROM attendance_adjustment_requests r
 		JOIN members m ON m.id = r.member_id AND m.owner_user_id = r.owner_user_id
 		WHERE r.owner_user_id = ? AND r.status = 'pending'
@@ -259,6 +273,7 @@ func scanAdjustmentRows(rows *sql.Rows) ([]models.AttendanceAdjustmentRequest, e
 			&item.MemberID,
 			&item.MemberName,
 			&item.WorkDate,
+			&item.LocationMode,
 			&item.RequestedCheckIn,
 			&item.RequestedCheckOut,
 			&item.Reason,
@@ -279,17 +294,26 @@ func scanAdjustmentRows(rows *sql.Rows) ([]models.AttendanceAdjustmentRequest, e
 }
 
 func (q *Querier) ReviewAttendanceAdjustment(ctx context.Context, ownerUserID, requestID, reviewerUserID int64, approve bool, reviewNote string) error {
+	beginner, ok := q.db.(attendanceTxBeginner)
+	if !ok {
+		return errors.New("database does not support transactions")
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	var memberID, requestedByUserID int64
-	var workDate, reason string
+	var workDate, locationMode, status string
 	var checkIn, checkOut time.Time
-	var status string
-	if err := q.db.QueryRowContext(ctx, `
-		SELECT member_id, requested_by_user_id, work_date, requested_check_in,
-		       requested_check_out, reason, status
+	if err := tx.QueryRowContext(ctx, `
+		SELECT member_id, requested_by_user_id, work_date, location_mode,
+		       requested_check_in, requested_check_out, status
 		FROM attendance_adjustment_requests
 		WHERE id = ? AND owner_user_id = ?
 	`, requestID, ownerUserID).Scan(
-		&memberID, &requestedByUserID, &workDate, &checkIn, &checkOut, &reason, &status,
+		&memberID, &requestedByUserID, &workDate, &locationMode, &checkIn, &checkOut, &status,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrAdjustmentRequestNotFound
@@ -304,12 +328,12 @@ func (q *Querier) ReviewAttendanceAdjustment(ctx context.Context, ownerUserID, r
 	var createdSessionID interface{}
 	if approve {
 		newStatus = "approved"
-		result, err := q.db.ExecContext(ctx, `
+		result, err := tx.ExecContext(ctx, `
 			INSERT INTO attendance_sessions (
 				owner_user_id, member_id, user_id, work_date, location_mode,
 				check_in_at, check_out_at, status, source
-			) VALUES (?, ?, ?, ?, 'remote', ?, ?, 'completed', 'manual_approved')
-		`, ownerUserID, memberID, requestedByUserID, workDate, checkIn.UTC(), checkOut.UTC())
+			) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', 'manual_approved')
+		`, ownerUserID, memberID, requestedByUserID, workDate, locationMode, checkIn.UTC(), checkOut.UTC())
 		if err != nil {
 			return err
 		}
@@ -318,11 +342,9 @@ func (q *Querier) ReviewAttendanceAdjustment(ctx context.Context, ownerUserID, r
 			return err
 		}
 		createdSessionID = id
-	} else {
-		createdSessionID = nil
 	}
 
-	result, err := q.db.ExecContext(ctx, `
+	result, err := tx.ExecContext(ctx, `
 		UPDATE attendance_adjustment_requests
 		SET status = ?, reviewed_by_user_id = ?, reviewed_at = CURRENT_TIMESTAMP,
 		    review_note = ?, created_session_id = ?, updated_at = CURRENT_TIMESTAMP
@@ -338,8 +360,7 @@ func (q *Querier) ReviewAttendanceAdjustment(ctx context.Context, ownerUserID, r
 	if affected == 0 {
 		return ErrAdjustmentRequestNotFound
 	}
-	_ = reason
-	return nil
+	return tx.Commit()
 }
 
 func (q *Querier) CreateOvertimeRequest(ctx context.Context, ownerUserID, memberID, userID int64, workDate string, requestedMinutes int, reason string) error {
