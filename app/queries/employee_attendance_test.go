@@ -36,10 +36,10 @@ func setupEmployeeAttendanceTestDB(t *testing.T) (*sql.DB, *Querier) {
 		CREATE UNIQUE INDEX idx_test_one_active ON attendance_sessions(member_id) WHERE status = 'active';
 		CREATE TABLE attendance_adjustment_requests (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, owner_user_id INTEGER NOT NULL, member_id INTEGER NOT NULL,
-			requested_by_user_id INTEGER NOT NULL, work_date TEXT NOT NULL, location_mode TEXT NOT NULL,
-			requested_check_in DATETIME NOT NULL, requested_check_out DATETIME NOT NULL, reason TEXT NOT NULL,
-			status TEXT NOT NULL DEFAULT 'pending', reviewed_by_user_id INTEGER, reviewed_at DATETIME,
-			review_note TEXT NOT NULL DEFAULT '', created_session_id INTEGER,
+			requested_by_user_id INTEGER NOT NULL, related_session_id INTEGER, work_date TEXT NOT NULL,
+			location_mode TEXT NOT NULL, requested_check_in DATETIME NOT NULL, requested_check_out DATETIME NOT NULL,
+			reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', reviewed_by_user_id INTEGER,
+			reviewed_at DATETIME, review_note TEXT NOT NULL DEFAULT '', created_session_id INTEGER,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE overtime_requests (
@@ -101,6 +101,29 @@ func TestEmployeeAttendanceSessionAndApprovalFlow(t *testing.T) {
 	var manualCount int
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM attendance_sessions WHERE source='manual_approved' AND status='completed' AND location_mode='office'`).Scan(&manualCount))
 	require.Equal(t, 1, manualCount)
+
+	forgotSession, err := q.CreateAttendanceSession(ctx, 1, 10, 2, "2026-09-29", "remote", checkIn.Add(5*time.Hour), "app")
+	require.NoError(t, err)
+	require.NoError(t, q.CreateForgotCheckoutAdjustment(
+		ctx, 1, 10, 2, forgotSession.ID, "2026-09-29", "remote",
+		forgotSession.CheckInAt, checkIn.Add(6*time.Hour), "Lupa checkout sesi remote",
+	))
+	_, err = q.GetActiveAttendanceSession(ctx, 10)
+	require.ErrorIs(t, err, ErrActiveAttendanceSessionNotFound)
+
+	var incompleteCount int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM attendance_sessions WHERE id = ? AND status='incomplete'`, forgotSession.ID).Scan(&incompleteCount))
+	require.Equal(t, 1, incompleteCount)
+
+	pending, err = q.ListPendingAttendanceAdjustmentsByOwner(ctx, 1)
+	require.NoError(t, err)
+	require.Len(t, pending, 1)
+	require.Equal(t, "remote", pending[0].LocationMode)
+	require.NoError(t, q.ReviewAttendanceAdjustment(ctx, 1, pending[0].ID, 1, true, "Verified"))
+
+	var replacementCount int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM attendance_sessions WHERE source='manual_approved' AND status='completed' AND location_mode='remote'`).Scan(&replacementCount))
+	require.Equal(t, 1, replacementCount)
 
 	require.NoError(t, q.CreateOvertimeRequest(ctx, 1, 10, 2, "2026-09-30", 120, "Closing program"))
 	overtime, err := q.ListPendingOvertimeRequestsByOwner(ctx, 1)
