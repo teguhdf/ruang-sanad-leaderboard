@@ -6,7 +6,6 @@
 		AlertCircle,
 		BriefcaseBusiness,
 		Building2,
-		CheckCircle2,
 		Clock3,
 		History,
 		Laptop,
@@ -25,9 +24,17 @@
 	}
 
 	let { user, attendance, success, error }: Props = $props();
-	let locationMode = $state<"office" | "remote">(attendance.identity.work_mode === "remote" ? "remote" : "office");
+	let locationMode = $state<"office" | "remote">(
+		attendance.identity.work_mode === "remote" ? "remote" : "office",
+	);
 	let nowMs = $state(Date.now());
-	let correction = $state({ work_date: attendance.today, start_time: "", end_time: "", reason: "" });
+	let correction = $state({
+		work_date: attendance.today,
+		location_mode: attendance.identity.work_mode === "remote" ? "remote" : "office",
+		start_time: "",
+		end_time: "",
+		reason: "",
+	});
 	let overtime = $state({ work_date: attendance.today, requested_minutes: 60, reason: "" });
 	let sending = $state<string | null>(null);
 
@@ -179,9 +186,13 @@
 
 			<div class="rounded-[28px] bg-amber-50 p-5 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:ring-amber-900/50 sm:p-6">
 				<div class="flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertCircle size="20" /><h2 class="text-lg font-black">Lupa absensi?</h2></div>
-				<p class="mt-2 text-sm leading-6 text-amber-800/75 dark:text-amber-300/70">Jangan membuat jam palsu atau mengedit sendiri. Ajukan waktu yang benar dan SPV akan approve atau reject.</p>
+				<p class="mt-2 text-sm leading-6 text-amber-800/75 dark:text-amber-300/70">Jangan membuat jam palsu atau mengedit sendiri. Ajukan sesi yang benar, termasuk lokasi kerja, lalu SPV akan approve atau reject.</p>
 				<form onsubmit={submitCorrection} class="mt-5 grid gap-3">
 					<input bind:value={correction.work_date} type="date" required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" />
+					<select bind:value={correction.location_mode} required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900">
+						<option value="office">Kantor</option>
+						<option value="remote">Remote</option>
+					</select>
 					<div class="grid grid-cols-2 gap-3"><input bind:value={correction.start_time} type="time" required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" /><input bind:value={correction.end_time} type="time" required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" /></div>
 					<textarea bind:value={correction.reason} required rows="3" placeholder="Contoh: lupa menekan Selesai Kerja setelah sesi remote" class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900"></textarea>
 					<button type="submit" disabled={sending === "correction"} class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-amber-700 px-5 text-sm font-bold text-white disabled:opacity-50"><Send size="16" />{sending === "correction" ? "Mengirim..." : "Ajukan Koreksi"}</button>
@@ -204,7 +215,7 @@
 				<h2 class="text-lg font-black">Status pengajuan</h2>
 				<div class="mt-4 grid gap-3 md:grid-cols-2">
 					{#each attendance.adjustments.slice(0, 4) as item}
-						<div class="rounded-2xl bg-neutral-50 p-4 dark:bg-white/[0.03]"><div class="flex items-center justify-between gap-3"><strong class="text-sm">Koreksi {item.work_date}</strong><span class="rounded-full px-2.5 py-1 text-[10px] font-black uppercase {item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">{item.status}</span></div><div class="mt-2 text-xs text-neutral-500">{formatTime(item.requested_check_in)} - {formatTime(item.requested_check_out)}</div></div>
+						<div class="rounded-2xl bg-neutral-50 p-4 dark:bg-white/[0.03]"><div class="flex items-center justify-between gap-3"><strong class="text-sm">Koreksi {item.work_date}</strong><span class="rounded-full px-2.5 py-1 text-[10px] font-black uppercase {item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">{item.status}</span></div><div class="mt-2 text-xs text-neutral-500">{item.location_mode === "office" ? "Kantor" : "Remote"} · {formatTime(item.requested_check_in)} - {formatTime(item.requested_check_out)}</div></div>
 					{/each}
 					{#each attendance.overtime_requests.slice(0, 4) as item}
 						<div class="rounded-2xl bg-neutral-50 p-4 dark:bg-white/[0.03]"><div class="flex items-center justify-between gap-3"><strong class="text-sm">Lembur {item.work_date}</strong><span class="rounded-full px-2.5 py-1 text-[10px] font-black uppercase {item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-violet-100 text-violet-700'}">{item.status}</span></div><div class="mt-2 text-xs text-neutral-500">{formatMinutes(item.requested_minutes).replace("+", "")} · {item.reason}</div></div>
