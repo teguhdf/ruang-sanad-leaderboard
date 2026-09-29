@@ -98,6 +98,7 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	employee.Get("/my-attendance", employeeAttendanceHandler.MyAttendance)
 	employee.Post("/my-attendance/start", employeeAttendanceHandler.StartWork)
 	employee.Post("/my-attendance/stop", employeeAttendanceHandler.StopWork)
+	employee.Post("/my-attendance/forgot-checkout", employeeAttendanceHandler.RequestForgotCheckout)
 	employee.Post("/my-attendance/adjustments", employeeAttendanceHandler.RequestAdjustment)
 	employee.Post("/my-attendance/overtime", employeeAttendanceHandler.RequestOvertime)
 
