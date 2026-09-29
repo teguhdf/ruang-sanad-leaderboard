@@ -25,9 +25,7 @@ type UploadHandler struct {
 	completedDir string
 }
 
-// NewUploadHandler creates a new UploadHandler with a tusdfiber TUS handler.
 func NewUploadHandler(store *session.Store, userService *services.UserService, uploadDir string) *UploadHandler {
-	// ── Storage ──────────────────────────────────────────────
 	fs := filestore.New(uploadDir)
 	fl := filelocker.New(uploadDir)
 
@@ -40,7 +38,6 @@ func NewUploadHandler(store *session.Store, userService *services.UserService, u
 		slog.Error("failed to create completed dir", "error", err)
 	}
 
-	// ── TUS Handler ───────────────────────────────────────────
 	handler, err := tusdfiber.NewHandler(tusdfiber.Config{
 		StoreComposer:           composer,
 		BasePath:                "/tus/files/",
@@ -65,14 +62,10 @@ func NewUploadHandler(store *session.Store, userService *services.UserService, u
 		completedDir: completedDir,
 	}
 
-	// Drain CompleteUploads channel and copy files to completed dir
 	go h.processCompletedUploads()
-
 	return h
 }
 
-// processCompletedUploads drains the CompleteUploads channel and copies
-// completed uploads to storage/completed/<filename> for easy access.
 func (h *UploadHandler) processCompletedUploads() {
 	for event := range h.TusHandler.CompleteUploads {
 		h.handleCompletedUpload(event)
@@ -81,26 +74,19 @@ func (h *UploadHandler) processCompletedUploads() {
 
 func (h *UploadHandler) handleCompletedUpload(event tusdfiber.HookEvent) {
 	info := event.Upload
-
-	// Get original filename from metadata (base64-decoded by tusdfiber)
 	filename := info.MetaData["filename"]
 	if filename == "" {
 		filename = info.ID
 	}
-	// Strip path components — only keep the base name to prevent path traversal
 	filename = filepath.Base(filename)
 
-	// Get the filestore path (from .info Storage.Path)
 	storePath := info.Storage["Path"]
 	if storePath == "" {
 		slog.Warn("completed upload: missing storage path", "id", info.ID)
 		return
 	}
 
-	// Destination path
 	destPath := filepath.Join(h.completedDir, filename)
-
-	// Copy file
 	srcFile, err := os.Open(storePath)
 	if err != nil {
 		slog.Error("completed upload: failed to open source", "id", info.ID, "error", err)
@@ -108,9 +94,7 @@ func (h *UploadHandler) handleCompletedUpload(event tusdfiber.HookEvent) {
 	}
 	defer srcFile.Close()
 
-	// Remove existing file with same name (overwrite)
 	os.Remove(destPath)
-
 	dstFile, err := os.Create(destPath)
 	if err != nil {
 		slog.Error("completed upload: failed to create destination", "path", destPath, "error", err)
@@ -132,16 +116,19 @@ func (h *UploadHandler) handleCompletedUpload(event tusdfiber.HookEvent) {
 	)
 }
 
-// RegisterTUSRoutes registers TUS protocol routes on the given Fiber app.
-func (h *UploadHandler) RegisterTUSRoutes(app *fiber.App, authMiddleware fiber.Handler) {
-	app.Use("/tus", authMiddleware)
+// RegisterTUSRoutes applies every supplied authorization middleware before
+// the TUS stack. This lets the app require both authentication and SPV/admin
+// authorization now that employee accounts exist.
+func (h *UploadHandler) RegisterTUSRoutes(app *fiber.App, accessMiddleware ...fiber.Handler) {
+	for _, middleware := range accessMiddleware {
+		app.Use("/tus", middleware)
+	}
 	for _, mw := range tusdfiber.DefaultMiddlewareStack(nil) {
 		app.Use("/tus", mw)
 	}
 	h.TusHandler.Register(app)
 }
 
-// AvatarUpload handles the legacy multipart avatar upload (Profile page).
 func (h *UploadHandler) AvatarUpload(c *fiber.Ctx) error {
 	sess, _ := h.store.Get(c)
 	userID := sess.Get("user_id")
@@ -159,7 +146,6 @@ func (h *UploadHandler) AvatarUpload(c *fiber.Ctx) error {
 	if len(files) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No file uploaded"})
 	}
-
 	file := files[0]
 
 	allowedTypes := []string{"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -174,11 +160,10 @@ func (h *UploadHandler) AvatarUpload(c *fiber.Ctx) error {
 	if !isAllowed {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WEBP"})
 	}
-
 	if file.Size > 5*1024*1024 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "File too large. Max size: 5MB"})
 	}
-	// Map content-type to extension — never trust the client-provided filename extension
+
 	extMap := map[string]string{
 		"image/jpeg": ".jpg",
 		"image/png":  ".png",
@@ -194,7 +179,6 @@ func (h *UploadHandler) AvatarUpload(c *fiber.Ctx) error {
 	}
 
 	avatarURL := "/storage/avatars/" + filename
-
 	if err := h.userService.UpdateAvatar(userID.(int64), avatarURL); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update avatar"})
 	}
@@ -209,7 +193,6 @@ func (h *UploadHandler) AvatarUpload(c *fiber.Ctx) error {
 	})
 }
 
-// GetUploadsDir returns the directory where TUS uploads are stored on disk.
 func (h *UploadHandler) GetUploadsDir() string {
 	return "storage/uploads"
 }
