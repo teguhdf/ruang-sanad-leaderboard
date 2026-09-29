@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS attendance_adjustment_requests (
     owner_user_id INTEGER NOT NULL,
     member_id INTEGER NOT NULL,
     requested_by_user_id INTEGER NOT NULL,
+    related_session_id INTEGER,
     work_date TEXT NOT NULL,
     location_mode TEXT NOT NULL CHECK (location_mode IN ('office', 'remote')),
     requested_check_in DATETIME NOT NULL,
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS attendance_adjustment_requests (
     FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
     FOREIGN KEY (requested_by_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (related_session_id) REFERENCES attendance_sessions(id) ON DELETE SET NULL,
     FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (created_session_id) REFERENCES attendance_sessions(id) ON DELETE SET NULL
 );
