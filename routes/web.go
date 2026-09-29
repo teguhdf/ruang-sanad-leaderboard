@@ -20,25 +20,16 @@ type Handlers struct {
 }
 
 func SetupRoutes(app *fiber.App, handlers Handlers, store *session.Store, userService *services.UserService, mailerService *services.MailerService, csrfMiddleware *middlewares.CSRFMiddleware) {
-	// Setup static file serving
 	setupStaticRoutes(app)
-
-	// Setup public routes
 	setupPublicRoutes(app, handlers.Public)
-
-	// Setup auth routes
 	setupAuthRoutes(app, handlers.Auth, handlers.PasswordReset, store, mailerService, csrfMiddleware)
-
-	// Setup app routes (protected)
 	setupAppRoutes(app, handlers.App, handlers.Upload, store, userService, csrfMiddleware)
 }
 
 func setupStaticRoutes(app *fiber.App) {
-	// Static assets with aggressive caching — hashed filenames from Vite are immutable
-	// Compress: true caches compressed (brotli/gzip) versions in memory, minimizing CPU reuse.
 	app.Static("/dist", "./dist", fiber.Static{
 		CacheDuration: 365 * 24 * time.Hour,
-		MaxAge:        31536000, // 1 year in seconds
+		MaxAge:        31536000,
 		Compress:      true,
 	})
 	app.Static("/assets", "./dist/assets", fiber.Static{
@@ -46,20 +37,14 @@ func setupStaticRoutes(app *fiber.App) {
 		MaxAge:        31536000,
 		Compress:      true,
 	})
-	// Public assets (non-hashed, short cache)
 	app.Static("/public", "./public", fiber.Static{
 		CacheDuration: 1 * time.Hour,
 		MaxAge:        3600,
 	})
-	// Avatars — served inline so <img src> works. Extensions are validated
-	// at upload time (only JPEG/PNG/GIF/WEBP) and X-Content-Type-Options: nosniff
-	// prevents MIME sniffing.
 	app.Static("/storage/avatars", "./storage/avatars", fiber.Static{
 		CacheDuration: 24 * time.Hour,
 		MaxAge:        86400,
 	})
-	// Completed uploads — force download to prevent browser execution of
-	// arbitrary uploaded files (HTML, JS) as a defense-in-depth measure.
 	app.Use("/storage/completed", func(c *fiber.Ctx) error {
 		c.Set("Content-Disposition", "attachment")
 		return c.Next()
@@ -76,67 +61,52 @@ func setupPublicRoutes(app *fiber.App, handler *handlers.PublicHandler) {
 }
 
 func setupAuthRoutes(app *fiber.App, authHandler *handlers.AuthHandler, passwordResetHandler *handlers.PasswordResetHandler, store *session.Store, mailerService *services.MailerService, csrfMiddleware *middlewares.CSRFMiddleware) {
-	// Login routes (with Guest middleware)
 	app.Get("/login", middlewares.Guest(store), authHandler.ShowLoginForm)
 	app.Post("/login", middlewares.Guest(store), authHandler.Login, middlewares.AuthRateLimit.Limit())
 
-	// Register routes (with Guest middleware)
 	app.Get("/register", middlewares.Guest(store), authHandler.ShowRegisterForm)
 	app.Post("/register", middlewares.Guest(store), authHandler.Register, middlewares.AuthRateLimit.Limit())
 
-	// OAuth routes
 	app.Get("/auth/google", authHandler.GoogleLogin)
 	app.Get("/auth/google/callback", authHandler.GoogleCallback)
 
-	// Logout (requires auth + CSRF protection)
 	app.Post("/logout", middlewares.AuthRequired(store), csrfMiddleware.Protect(), authHandler.Logout)
 
-	// Password reset routes
 	app.Get("/forgot-password", passwordResetHandler.ShowForgotPasswordForm)
 	app.Post("/forgot-password", passwordResetHandler.SendResetLink, middlewares.PasswordResetRateLimit.Limit())
 	app.Get("/reset-password/:token", passwordResetHandler.ShowResetPasswordForm)
 	app.Post("/reset-password/:token", passwordResetHandler.ResetPassword)
 
-	// Email verification
 	app.Get("/verify-email/:token", authHandler.VerifyEmail)
 }
 
 func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, uploadHandler *handlers.UploadHandler, store *session.Store, userService *services.UserService, csrfMiddleware *middlewares.CSRFMiddleware) {
-	// Protected app routes with CSRF protection
 	protected := app.Group("/app", middlewares.AuthRequired(store), middlewares.NoCache())
 	protected.Use(csrfMiddleware.Protect())
 
-	// Dashboard
 	protected.Get("/", appHandler.Dashboard)
 
-	// Members
 	protected.Get("/members", appHandler.Members)
 	protected.Post("/members", appHandler.CreateMember)
 	protected.Put("/members/:id", appHandler.UpdateMember)
 
-	// Fingerprint import preview and persistence
+	protected.Get("/attendance", appHandler.AttendanceFoundation)
+	protected.Put("/attendance/profiles/:memberID", appHandler.UpdateAttendanceProfile)
+
 	protected.Get("/fingerprint", appHandler.FingerprintImport)
 	protected.Post("/fingerprint/preview", appHandler.PreviewFingerprint)
 	protected.Post("/fingerprint/import", appHandler.SaveFingerprintImport)
 
-	// Profile
 	protected.Get("/profile", appHandler.Profile)
 	protected.Put("/profile", appHandler.UpdateProfile)
 	protected.Put("/profile/password", appHandler.UpdatePassword)
 
-	// Upload Test page
 	protected.Get("/upload", appHandler.UploadTest)
-
-	// Avatar upload (legacy multipart, for Profile page)
 	protected.Post("/upload", uploadHandler.AvatarUpload)
 
-	// TUS resumable upload protocol endpoints — directly on app.
-	// AuthRequired applied internally by RegisterTUSRoutes via /tus prefix middleware.
-	// BasePath = /tus/files/ so Location URLs correctly include /tus/ prefix.
 	authMiddleware := middlewares.AuthRequired(store)
 	uploadHandler.RegisterTUSRoutes(app, authMiddleware)
 
-	// Admin-only routes
 	admin := app.Group("/admin", middlewares.AdminRequired(store, userService), middlewares.NoCache())
 	admin.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
@@ -145,7 +115,6 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, uploadHandl
 	})
 }
 
-// SetupCSRFMiddleware sets up the CSRF middleware
 func SetupCSRFMiddleware(secret string, secure bool) *middlewares.CSRFMiddleware {
 	config := middlewares.DefaultCSRFConfig(secret)
 	config.Secure = secure
@@ -153,8 +122,6 @@ func SetupCSRFMiddleware(secret string, secure bool) *middlewares.CSRFMiddleware
 	return middlewares.NewCSRFMiddleware(config)
 }
 
-
-// SetupPasswordResetHandler sets up the password reset handler
 func SetupPasswordResetHandler(
 	mailerService *services.MailerService,
 	userService *services.UserService,
@@ -169,7 +136,6 @@ func SetupPasswordResetHandler(
 	)
 }
 
-// GetAppURL returns the application URL based on environment
 func GetAppURL(appPort string, appEnv string) string {
 	if appEnv == "production" {
 		return "https://yourdomain.com"
