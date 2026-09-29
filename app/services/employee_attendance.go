@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	ErrEmployeeAlreadyLinked = errors.New("employee account already linked")
-	ErrEmployeeInviteConflict = errors.New("email belongs to a non-employee account")
+	ErrEmployeeAlreadyLinked    = errors.New("employee account already linked")
+	ErrEmployeeInviteConflict  = errors.New("email belongs to a non-employee account")
 	ErrAttendanceSessionActive = errors.New("attendance session already active")
 	ErrNoActiveAttendanceSession = errors.New("no active attendance session")
 )
@@ -26,36 +26,39 @@ type EmployeeAttendanceValidationError struct {
 func (e *EmployeeAttendanceValidationError) Error() string { return e.Message }
 
 type EmployeeAttendanceService struct {
-	querier *queries.Querier
-	mailer *MailerService
+	querier  *queries.Querier
+	mailer   *MailerService
 	location *time.Location
 }
 
 func NewEmployeeAttendanceService(querier *queries.Querier, mailer *MailerService) *EmployeeAttendanceService {
 	return &EmployeeAttendanceService{
-		querier: querier,
-		mailer: mailer,
+		querier:  querier,
+		mailer:   mailer,
 		location: time.FixedZone("WIB", 7*60*60),
 	}
 }
 
 func (s *EmployeeAttendanceService) InviteEmployee(ownerUserID, memberID int64, email string) error {
 	ctx := context.Background()
-	email = strings.ToLower(strings.TrimSpace(email))
-	if email == "" || !strings.Contains(email, "@") {
-		return &EmployeeAttendanceValidationError{Message: "Email employee tidak valid."}
-	}
-
 	name, linkedUserID, linkedEmail, err := s.querier.GetAttendanceInviteTarget(ctx, ownerUserID, memberID)
 	if err != nil {
 		return err
 	}
 
+	email = strings.ToLower(strings.TrimSpace(email))
 	if linkedUserID != nil {
+		if email == "" {
+			email = linkedEmail
+		}
 		if !strings.EqualFold(linkedEmail, email) {
 			return ErrEmployeeAlreadyLinked
 		}
 		return s.mailer.SendPasswordResetEmail(ctx, linkedEmail, *linkedUserID)
+	}
+
+	if email == "" || !strings.Contains(email, "@") {
+		return &EmployeeAttendanceValidationError{Message: "Email employee tidak valid."}
 	}
 
 	user, err := s.querier.GetUserByEmail(ctx, email)
@@ -64,10 +67,10 @@ func (s *EmployeeAttendanceService) InviteEmployee(ownerUserID, memberID int64, 
 	}
 	if errors.Is(err, queries.ErrUserNotFound) {
 		user = &models.User{
-			Email: email,
-			Name: name,
-			Password: sql.NullString{},
-			Role: models.RoleEmployee,
+			Email:         email,
+			Name:          name,
+			Password:      sql.NullString{},
+			Role:          models.RoleEmployee,
 			EmailVerified: false,
 		}
 		if err := s.querier.CreateUser(ctx, user); err != nil {
@@ -80,7 +83,6 @@ func (s *EmployeeAttendanceService) InviteEmployee(ownerUserID, memberID int64, 
 	if err := s.querier.LinkEmployeeUser(ctx, ownerUserID, memberID, user.ID); err != nil {
 		return err
 	}
-
 	return s.mailer.SendPasswordResetEmail(ctx, email, user.ID)
 }
 
@@ -97,8 +99,7 @@ func (s *EmployeeAttendanceService) GetMyAttendance(userID int64) (*models.MyAtt
 		return nil, err
 	}
 
-	var active *models.AttendanceSession
-	active, err = s.querier.GetActiveAttendanceSession(ctx, identity.MemberID)
+	active, err := s.querier.GetActiveAttendanceSession(ctx, identity.MemberID)
 	if err != nil && !errors.Is(err, queries.ErrActiveAttendanceSessionNotFound) {
 		return nil, err
 	}
@@ -144,18 +145,18 @@ func (s *EmployeeAttendanceService) GetMyAttendance(userID int64) (*models.MyAtt
 	}
 
 	return &models.MyAttendanceSummary{
-		Identity: identity,
-		Today: today,
-		ActiveSession: active,
-		TodaySessions: todaySessions,
-		TodayMinutes: todayMinutes,
-		WeekStart: weekStart,
-		WeekEnd: weekEnd,
-		WeeklyMinutes: weeklyMinutes,
-		WeeklyTargetMinutes: identity.WeeklyTargetMinutes,
+		Identity:             identity,
+		Today:                today,
+		ActiveSession:        active,
+		TodaySessions:        todaySessions,
+		TodayMinutes:         todayMinutes,
+		WeekStart:            weekStart,
+		WeekEnd:              weekEnd,
+		WeeklyMinutes:        weeklyMinutes,
+		WeeklyTargetMinutes:  identity.WeeklyTargetMinutes,
 		WeeklyBalanceMinutes: weeklyMinutes - identity.WeeklyTargetMinutes,
-		Adjustments: adjustments,
-		OvertimeRequests: overtime,
+		Adjustments:          adjustments,
+		OvertimeRequests:     overtime,
 	}, nil
 }
 
@@ -165,8 +166,8 @@ func (s *EmployeeAttendanceService) StartWork(userID int64, input models.StartWo
 	if err != nil {
 		return err
 	}
-	locationMode := strings.ToLower(strings.TrimSpace(input.LocationMode))
-	if locationMode != "office" && locationMode != "remote" {
+	locationMode := normalizeLocation(input.LocationMode)
+	if locationMode == "" {
 		return &EmployeeAttendanceValidationError{Message: "Pilih lokasi kerja Kantor atau Remote."}
 	}
 
@@ -216,11 +217,16 @@ func (s *EmployeeAttendanceService) RequestAdjustment(userID int64, input models
 		return err
 	}
 
+	locationMode := normalizeLocation(input.LocationMode)
+	if locationMode == "" {
+		return &EmployeeAttendanceValidationError{Message: "Pilih lokasi sesi yang dikoreksi."}
+	}
 	input.Reason = strings.TrimSpace(input.Reason)
 	if len(input.Reason) < 5 {
 		return &EmployeeAttendanceValidationError{Message: "Alasan koreksi minimal 5 karakter."}
 	}
-	workDate, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(input.WorkDate), s.location)
+	workDateString := strings.TrimSpace(input.WorkDate)
+	workDate, err := time.ParseInLocation("2006-01-02", workDateString, s.location)
 	if err != nil {
 		return &EmployeeAttendanceValidationError{Message: "Tanggal koreksi tidak valid."}
 	}
@@ -245,7 +251,7 @@ func (s *EmployeeAttendanceService) RequestAdjustment(userID int64, input models
 		return &EmployeeAttendanceValidationError{Message: "Durasi koreksi terlalu panjang. Maksimal 16 jam per sesi."}
 	}
 
-	return s.querier.CreateAttendanceAdjustmentRequest(ctx, identity.OwnerUserID, identity.MemberID, userID, input.WorkDate, checkIn, checkOut, input.Reason)
+	return s.querier.CreateAttendanceAdjustmentRequest(ctx, identity.OwnerUserID, identity.MemberID, userID, workDateString, locationMode, checkIn, checkOut, input.Reason)
 }
 
 func (s *EmployeeAttendanceService) RequestOvertime(userID int64, input models.OvertimeRequestInput) error {
@@ -255,7 +261,8 @@ func (s *EmployeeAttendanceService) RequestOvertime(userID int64, input models.O
 		return err
 	}
 	input.Reason = strings.TrimSpace(input.Reason)
-	if _, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(input.WorkDate), s.location); err != nil {
+	workDate := strings.TrimSpace(input.WorkDate)
+	if _, err := time.ParseInLocation("2006-01-02", workDate, s.location); err != nil {
 		return &EmployeeAttendanceValidationError{Message: "Tanggal lembur tidak valid."}
 	}
 	if input.RequestedMinutes < 30 || input.RequestedMinutes > 720 {
@@ -264,7 +271,7 @@ func (s *EmployeeAttendanceService) RequestOvertime(userID int64, input models.O
 	if len(input.Reason) < 5 {
 		return &EmployeeAttendanceValidationError{Message: "Alasan lembur minimal 5 karakter."}
 	}
-	return s.querier.CreateOvertimeRequest(ctx, identity.OwnerUserID, identity.MemberID, userID, input.WorkDate, input.RequestedMinutes, input.Reason)
+	return s.querier.CreateOvertimeRequest(ctx, identity.OwnerUserID, identity.MemberID, userID, workDate, input.RequestedMinutes, input.Reason)
 }
 
 func (s *EmployeeAttendanceService) ListPendingReviews(ownerUserID int64) ([]models.AttendanceAdjustmentRequest, []models.OvertimeRequest, error) {
@@ -294,6 +301,14 @@ func (s *EmployeeAttendanceService) ReviewOvertime(ownerUserID, requestID, revie
 		return err
 	}
 	return s.querier.ReviewOvertimeRequest(context.Background(), ownerUserID, requestID, reviewerUserID, approve, strings.TrimSpace(input.ReviewNote))
+}
+
+func normalizeLocation(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "office" || value == "remote" {
+		return value
+	}
+	return ""
 }
 
 func reviewDecision(action string) (bool, error) {
