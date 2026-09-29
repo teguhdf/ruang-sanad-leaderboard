@@ -28,6 +28,7 @@
 		attendance.identity.work_mode === "remote" ? "remote" : "office",
 	);
 	let nowMs = $state(Date.now());
+	let forgotCheckout = $state({ end_time: "", reason: "" });
 	let correction = $state({
 		work_date: attendance.today,
 		location_mode: attendance.identity.work_mode === "remote" ? "remote" : "office",
@@ -80,6 +81,11 @@
 
 	function stopWork() {
 		post("/app/my-attendance/stop", {}, "stop");
+	}
+
+	function submitForgotCheckout(event: SubmitEvent) {
+		event.preventDefault();
+		post("/app/my-attendance/forgot-checkout", forgotCheckout, "forgot-checkout");
 	}
 
 	function submitCorrection(event: SubmitEvent) {
@@ -149,6 +155,16 @@
 						<Square size="18" fill="currentColor" /> {sending === "stop" ? "Menyimpan..." : "Selesai Kerja"}
 					</button>
 				</div>
+
+				<details class="mt-5 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:ring-amber-900/50">
+					<summary class="text-sm font-black text-amber-800 dark:text-amber-300">Ternyata tadi lupa checkout?</summary>
+					<p class="mt-2 text-xs leading-5 text-amber-800/75 dark:text-amber-300/70">Sesi aktif akan ditandai incomplete, bukan dihitung sampai waktu yang salah. Masukkan jam selesai yang sebenarnya untuk approval SPV. Setelah dikirim Anda bisa langsung mulai sesi baru.</p>
+					<form onsubmit={submitForgotCheckout} class="mt-4 grid gap-3 sm:grid-cols-[160px_1fr_auto] sm:items-end">
+						<label class="grid gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">Selesai sebenarnya<input bind:value={forgotCheckout.end_time} type="time" required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" /></label>
+						<label class="grid gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">Alasan<input bind:value={forgotCheckout.reason} type="text" required placeholder="Contoh: lupa menekan selesai kerja" class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" /></label>
+						<button type="submit" disabled={sending === "forgot-checkout"} class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-amber-700 px-5 text-sm font-bold text-white disabled:opacity-50"><Send size="16" />{sending === "forgot-checkout" ? "Mengirim..." : "Ajukan & Tutup"}</button>
+					</form>
+				</details>
 			{:else}
 				<div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 					<div>
@@ -185,16 +201,13 @@
 			</div>
 
 			<div class="rounded-[28px] bg-amber-50 p-5 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:ring-amber-900/50 sm:p-6">
-				<div class="flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertCircle size="20" /><h2 class="text-lg font-black">Lupa absensi?</h2></div>
-				<p class="mt-2 text-sm leading-6 text-amber-800/75 dark:text-amber-300/70">Jangan membuat jam palsu atau mengedit sendiri. Ajukan sesi yang benar, termasuk lokasi kerja, lalu SPV akan approve atau reject.</p>
+				<div class="flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertCircle size="20" /><h2 class="text-lg font-black">Lupa satu sesi?</h2></div>
+				<p class="mt-2 text-sm leading-6 text-amber-800/75 dark:text-amber-300/70">Jika satu sesi sama sekali tidak tercatat, ajukan sesi yang benar beserta lokasi. Jam baru dihitung setelah SPV approve.</p>
 				<form onsubmit={submitCorrection} class="mt-5 grid gap-3">
 					<input bind:value={correction.work_date} type="date" required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" />
-					<select bind:value={correction.location_mode} required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900">
-						<option value="office">Kantor</option>
-						<option value="remote">Remote</option>
-					</select>
+					<select bind:value={correction.location_mode} required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900"><option value="office">Kantor</option><option value="remote">Remote</option></select>
 					<div class="grid grid-cols-2 gap-3"><input bind:value={correction.start_time} type="time" required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" /><input bind:value={correction.end_time} type="time" required class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900" /></div>
-					<textarea bind:value={correction.reason} required rows="3" placeholder="Contoh: lupa menekan Selesai Kerja setelah sesi remote" class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900"></textarea>
+					<textarea bind:value={correction.reason} required rows="3" placeholder="Contoh: lupa check-in sesi remote 19:00-20:00" class="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-neutral-900"></textarea>
 					<button type="submit" disabled={sending === "correction"} class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-amber-700 px-5 text-sm font-bold text-white disabled:opacity-50"><Send size="16" />{sending === "correction" ? "Mengirim..." : "Ajukan Koreksi"}</button>
 				</form>
 			</div>
