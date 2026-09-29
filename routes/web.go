@@ -29,32 +29,15 @@ func SetupRoutes(app *fiber.App, handlers Handlers, store *session.Store, userSe
 }
 
 func setupStaticRoutes(app *fiber.App) {
-	app.Static("/dist", "./dist", fiber.Static{
-		CacheDuration: 365 * 24 * time.Hour,
-		MaxAge:        31536000,
-		Compress:      true,
-	})
-	app.Static("/assets", "./dist/assets", fiber.Static{
-		CacheDuration: 365 * 24 * time.Hour,
-		MaxAge:        31536000,
-		Compress:      true,
-	})
-	app.Static("/public", "./public", fiber.Static{
-		CacheDuration: 1 * time.Hour,
-		MaxAge:        3600,
-	})
-	app.Static("/storage/avatars", "./storage/avatars", fiber.Static{
-		CacheDuration: 24 * time.Hour,
-		MaxAge:        86400,
-	})
+	app.Static("/dist", "./dist", fiber.Static{CacheDuration: 365 * 24 * time.Hour, MaxAge: 31536000, Compress: true})
+	app.Static("/assets", "./dist/assets", fiber.Static{CacheDuration: 365 * 24 * time.Hour, MaxAge: 31536000, Compress: true})
+	app.Static("/public", "./public", fiber.Static{CacheDuration: 1 * time.Hour, MaxAge: 3600})
+	app.Static("/storage/avatars", "./storage/avatars", fiber.Static{CacheDuration: 24 * time.Hour, MaxAge: 86400})
 	app.Use("/storage/completed", func(c *fiber.Ctx) error {
 		c.Set("Content-Disposition", "attachment")
 		return c.Next()
 	})
-	app.Static("/storage/completed", "./storage/completed", fiber.Static{
-		CacheDuration: 24 * time.Hour,
-		MaxAge:        86400,
-	})
+	app.Static("/storage/completed", "./storage/completed", fiber.Static{CacheDuration: 24 * time.Hour, MaxAge: 86400})
 }
 
 func setupPublicRoutes(app *fiber.App, handler *handlers.PublicHandler) {
@@ -73,7 +56,6 @@ func setupAuthRoutes(app *fiber.App, authHandler *handlers.AuthHandler, password
 	app.Post("/forgot-password", passwordResetHandler.SendResetLink, middlewares.PasswordResetRateLimit.Limit())
 	app.Get("/reset-password/:token", passwordResetHandler.ShowResetPasswordForm)
 	app.Post("/reset-password/:token", passwordResetHandler.ResetPassword)
-
 	app.Get("/verify-email/:token", authHandler.VerifyEmail)
 }
 
@@ -81,7 +63,17 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	protected := app.Group("/app", middlewares.AuthRequired(store), middlewares.NoCache())
 	protected.Use(csrfMiddleware.Protect())
 
-	protected.Get("/", appHandler.Dashboard)
+	protected.Get("/", func(c *fiber.Ctx) error {
+		userID, ok := c.Locals("user_id").(int64)
+		if ok {
+			profile, err := userService.GetProfile(userID)
+			if err == nil && profile.Role == models.RoleEmployee {
+				return c.Redirect("/app/my-attendance")
+			}
+		}
+		return appHandler.Dashboard(c)
+	})
+
 	protected.Get("/profile", appHandler.Profile)
 	protected.Put("/profile", appHandler.UpdateProfile)
 	protected.Put("/profile/password", appHandler.UpdatePassword)
@@ -91,18 +83,15 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	management.Get("/members", appHandler.Members)
 	management.Post("/members", appHandler.CreateMember)
 	management.Put("/members/:id", appHandler.UpdateMember)
-
 	management.Get("/attendance", appHandler.AttendanceFoundation)
 	management.Put("/attendance/profiles/:memberID", appHandler.UpdateAttendanceProfile)
 	management.Post("/attendance/invite/:memberID", employeeAttendanceHandler.InviteEmployee)
 	management.Get("/attendance/reviews", employeeAttendanceHandler.AttendanceReviews)
 	management.Post("/attendance/reviews/adjustments/:requestID", employeeAttendanceHandler.ReviewAdjustment)
 	management.Post("/attendance/reviews/overtime/:requestID", employeeAttendanceHandler.ReviewOvertime)
-
 	management.Get("/fingerprint", appHandler.FingerprintImport)
 	management.Post("/fingerprint/preview", appHandler.PreviewFingerprint)
 	management.Post("/fingerprint/import", appHandler.SaveFingerprintImport)
-
 	management.Get("/upload", appHandler.UploadTest)
 
 	employee := protected.Group("", middlewares.RoleRequired(userService, models.RoleEmployee))
@@ -116,9 +105,7 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	uploadHandler.RegisterTUSRoutes(app, authMiddleware)
 
 	admin := app.Group("/admin", middlewares.AdminRequired(store, userService), middlewares.NoCache())
-	admin.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"message": "Admin dashboard"})
-	})
+	admin.Get("/", func(c *fiber.Ctx) error { return c.JSON(fiber.Map{"message": "Admin dashboard"}) })
 }
 
 func SetupCSRFMiddleware(secret string, secure bool) *middlewares.CSRFMiddleware {
@@ -134,12 +121,7 @@ func SetupPasswordResetHandler(
 	store *session.Store,
 	inertiaService *services.InertiaService,
 ) *handlers.PasswordResetHandler {
-	return handlers.NewPasswordResetHandler(
-		mailerService,
-		userService,
-		store,
-		inertiaService,
-	)
+	return handlers.NewPasswordResetHandler(mailerService, userService, store, inertiaService)
 }
 
 func GetAppURL(appPort string, appEnv string) string {
