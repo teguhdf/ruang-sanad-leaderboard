@@ -66,11 +66,7 @@ func setupAuthRoutes(app *fiber.App, authHandler *handlers.AuthHandler, password
 	app.Get("/login", middlewares.Guest(store), authHandler.ShowLoginForm)
 	app.Post("/login", middlewares.Guest(store), authHandler.Login, middlewares.AuthRateLimit.Limit())
 
-	// Public self-registration is intentionally disabled. Employee accounts are
-	// created by SPV invite and existing Google accounts may only sign in.
-	app.Get("/auth/google", authHandler.GoogleLogin)
-	app.Get("/auth/google/callback", authHandler.GoogleCallback)
-
+	// Invite-only: no public registration and no public OAuth account creation.
 	app.Post("/logout", middlewares.AuthRequired(store), csrfMiddleware.Protect(), authHandler.Logout)
 
 	app.Get("/forgot-password", passwordResetHandler.ShowForgotPasswordForm)
