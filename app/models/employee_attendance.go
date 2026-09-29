@@ -28,6 +28,7 @@ type AttendanceAdjustmentRequest struct {
 	ID                int64      `json:"id"`
 	MemberID          int64      `json:"member_id"`
 	MemberName        string     `json:"member_name"`
+	RelatedSessionID  *int64     `json:"related_session_id,omitempty"`
 	WorkDate          string     `json:"work_date"`
 	LocationMode      string     `json:"location_mode"`
 	RequestedCheckIn  time.Time  `json:"requested_check_in"`
@@ -43,6 +44,11 @@ type StartWorkInput struct {
 	LocationMode string `json:"location_mode" form:"location_mode"`
 }
 
+type ForgotCheckoutInput struct {
+	EndTime string `json:"end_time" form:"end_time"`
+	Reason  string `json:"reason" form:"reason"`
+}
+
 type AttendanceAdjustmentInput struct {
 	WorkDate     string `json:"work_date" form:"work_date"`
 	LocationMode string `json:"location_mode" form:"location_mode"`
@@ -52,9 +58,9 @@ type AttendanceAdjustmentInput struct {
 }
 
 type OvertimeRequestInput struct {
-	WorkDate          string `json:"work_date" form:"work_date"`
-	RequestedMinutes  int    `json:"requested_minutes" form:"requested_minutes"`
-	Reason            string `json:"reason" form:"reason"`
+	WorkDate         string `json:"work_date" form:"work_date"`
+	RequestedMinutes int    `json:"requested_minutes" form:"requested_minutes"`
+	Reason           string `json:"reason" form:"reason"`
 }
 
 type ReviewRequestInput struct {
@@ -63,16 +69,16 @@ type ReviewRequestInput struct {
 }
 
 type MyAttendanceSummary struct {
-	Identity             EmployeeAttendanceIdentity        `json:"identity"`
-	Today                string                            `json:"today"`
-	ActiveSession        *AttendanceSession                `json:"active_session,omitempty"`
-	TodaySessions        []AttendanceSession               `json:"today_sessions"`
-	TodayMinutes         int                               `json:"today_minutes"`
-	WeekStart            string                            `json:"week_start"`
-	WeekEnd              string                            `json:"week_end"`
-	WeeklyMinutes        int                               `json:"weekly_minutes"`
-	WeeklyTargetMinutes  int                               `json:"weekly_target_minutes"`
-	WeeklyBalanceMinutes int                               `json:"weekly_balance_minutes"`
-	Adjustments          []AttendanceAdjustmentRequest     `json:"adjustments"`
-	OvertimeRequests     []OvertimeRequest                 `json:"overtime_requests"`
+	Identity             EmployeeAttendanceIdentity    `json:"identity"`
+	Today                string                        `json:"today"`
+	ActiveSession        *AttendanceSession            `json:"active_session,omitempty"`
+	TodaySessions        []AttendanceSession           `json:"today_sessions"`
+	TodayMinutes         int                           `json:"today_minutes"`
+	WeekStart            string                        `json:"week_start"`
+	WeekEnd              string                        `json:"week_end"`
+	WeeklyMinutes        int                           `json:"weekly_minutes"`
+	WeeklyTargetMinutes  int                           `json:"weekly_target_minutes"`
+	WeeklyBalanceMinutes int                           `json:"weekly_balance_minutes"`
+	Adjustments          []AttendanceAdjustmentRequest `json:"adjustments"`
+	OvertimeRequests     []OvertimeRequest             `json:"overtime_requests"`
 }
