@@ -1,7 +1,5 @@
 /**
  * Shared frontend types.
- *
- * Must stay in sync with Go backend `app/models/dto.go` UserResponse.
  */
 
 export interface User {
@@ -83,6 +81,68 @@ export interface AttendanceFoundation {
 	policy: AttendancePolicy;
 	profiles: MemberAttendanceProfile[];
 	shift_templates: ShiftTemplate[];
+}
+
+export interface EmployeeAttendanceIdentity {
+	member_id: number;
+	member_name: string;
+	division: string;
+	work_mode: "onsite" | "remote" | "hybrid";
+	schedule_type: "shift" | "flexible";
+	weekly_target_minutes: number;
+}
+
+export interface AttendanceSession {
+	id: number;
+	member_id: number;
+	work_date: string;
+	location_mode: "office" | "remote";
+	check_in_at: string;
+	check_out_at?: string;
+	status: "active" | "completed" | "incomplete" | "superseded";
+	source: "app" | "manual_approved";
+	duration_minutes: number;
+}
+
+export interface AttendanceAdjustmentRequest {
+	id: number;
+	member_id: number;
+	member_name: string;
+	work_date: string;
+	requested_check_in: string;
+	requested_check_out: string;
+	reason: string;
+	status: "pending" | "approved" | "rejected";
+	review_note: string;
+	reviewed_at?: string;
+	created_at: string;
+}
+
+export interface OvertimeRequest {
+	id: number;
+	member_id: number;
+	work_date: string;
+	requested_minutes: number;
+	reason: string;
+	status: "pending" | "approved" | "rejected";
+	review_note: string;
+	approved_at?: string;
+	created_at: string;
+}
+
+export interface MyAttendanceSummary {
+	identity: EmployeeAttendanceIdentity;
+	today: string;
+	active_session?: AttendanceSession;
+	today_sessions: AttendanceSession[];
+	today_minutes: number;
+	week_start: string;
+	week_end: string;
+	weekly_minutes: number;
+	weekly_target_minutes: number;
+	weekly_balance_minutes: number;
+	adjustments: AttendanceAdjustmentRequest[];
+	overtime_requests: OvertimeRequest[];
 }
 
 export interface FingerprintDayPreview {
