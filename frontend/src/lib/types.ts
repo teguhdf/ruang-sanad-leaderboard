@@ -13,18 +13,12 @@ export interface User {
 	email_verified: boolean;
 }
 
-/**
- * Common flash message shape from Inertia.
- * Backend sets via `s.store.Flash(c, "error", ...)` and `inertiaService.Render`
- * merges into `props.flash` automatically.
- */
 export interface Flash {
 	error?: string;
 	success?: string;
 	warning?: string;
 	info?: string;
 }
-
 
 export interface Member {
 	id: number;
@@ -38,6 +32,58 @@ export interface Member {
 	updated_at: string;
 }
 
+export interface AttendancePolicy {
+	id: number;
+	weekday_target_minutes: number;
+	saturday_target_minutes: number;
+	weekly_target_minutes: number;
+	late_tolerance_minutes: number;
+	early_leave_tolerance_minutes: number;
+	allow_weekly_carryover: boolean;
+	overtime_requires_approval: boolean;
+	week_starts_on: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface MemberAttendanceProfile {
+	id: number;
+	member_id: number;
+	member_name: string;
+	division: string;
+	linked_user_id?: number;
+	work_mode: "onsite" | "remote" | "hybrid";
+	schedule_type: "shift" | "flexible";
+	required_daily_minutes: number;
+	weekly_target_minutes: number;
+	attendance_enabled: boolean;
+}
+
+export interface ShiftSegment {
+	id: number;
+	sort_order: number;
+	location_mode: "office" | "remote";
+	start_time?: string;
+	end_time?: string;
+	target_minutes: number;
+	is_flexible: boolean;
+}
+
+export interface ShiftTemplate {
+	id: number;
+	code: string;
+	name: string;
+	required_minutes: number;
+	description: string;
+	is_active: boolean;
+	segments: ShiftSegment[];
+}
+
+export interface AttendanceFoundation {
+	policy: AttendancePolicy;
+	profiles: MemberAttendanceProfile[];
+	shift_templates: ShiftTemplate[];
+}
 
 export interface FingerprintDayPreview {
 	day: number;
@@ -79,7 +125,6 @@ export interface FingerprintPreview {
 		multiple_times: number;
 	};
 }
-
 
 export interface FingerprintImportHistory {
 	id: number;
