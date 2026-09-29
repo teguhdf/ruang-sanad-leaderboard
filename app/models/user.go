@@ -8,8 +8,13 @@ import (
 type UserRole string
 
 const (
-	RoleUser  UserRole = "user"
-	RoleAdmin UserRole = "admin"
+	// RoleUser is kept for backward compatibility with existing accounts.
+	// Sprint 2 will migrate/invite explicit SPV and employee accounts before
+	// role-based route enforcement is enabled.
+	RoleUser     UserRole = "user"
+	RoleAdmin    UserRole = "admin"
+	RoleSPV      UserRole = "spv"
+	RoleEmployee UserRole = "employee"
 )
 
 type User struct {
@@ -27,7 +32,6 @@ type User struct {
 	UpdatedAt             time.Time      `json:"updated_at"`
 }
 
-// TableName returns the table name for User
 func (User) TableName() string {
 	return "users"
 }
