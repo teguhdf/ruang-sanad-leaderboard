@@ -11,17 +11,19 @@ import (
 )
 
 type AppHandler struct {
-	userService             *services.UserService
-	memberService           *services.MemberService
+	userService              *services.UserService
+	memberService            *services.MemberService
 	fingerprintImportService *services.FingerprintImportService
-	store                   *session.Store
-	inertiaService          *services.InertiaService
+	attendanceService        *services.AttendanceService
+	store                    *session.Store
+	inertiaService           *services.InertiaService
 }
 
 func NewAppHandler(
 	userService *services.UserService,
 	memberService *services.MemberService,
 	fingerprintImportService *services.FingerprintImportService,
+	attendanceService *services.AttendanceService,
 	store *session.Store,
 	inertiaService *services.InertiaService,
 ) *AppHandler {
@@ -29,6 +31,7 @@ func NewAppHandler(
 		userService:              userService,
 		memberService:            memberService,
 		fingerprintImportService: fingerprintImportService,
+		attendanceService:        attendanceService,
 		store:                    store,
 		inertiaService:           inertiaService,
 	}
