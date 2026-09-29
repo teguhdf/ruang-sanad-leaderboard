@@ -109,6 +109,7 @@ export interface AttendanceAdjustmentRequest {
 	member_id: number;
 	member_name: string;
 	work_date: string;
+	location_mode: "office" | "remote";
 	requested_check_in: string;
 	requested_check_out: string;
 	reason: string;
