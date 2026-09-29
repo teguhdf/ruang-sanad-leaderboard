@@ -44,7 +44,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load configuration
 	cfg := config.Load()
 
 	logLevel := slog.LevelInfo
@@ -61,7 +60,6 @@ func main() {
 	slog.SetDefault(slog.New(handler))
 	slog.Info("starting", "version", Version, "commit", Commit, "env", cfg.AppEnv)
 
-	// Initialize database
 	db, err := initDatabase(cfg.DBPath)
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
@@ -69,26 +67,17 @@ func main() {
 	}
 	defer db.Close()
 
-	// Run migrations
 	if err := runMigrations(db, "./migrations"); err != nil {
 		slog.Error("failed to run migrations", "error", err)
 		os.Exit(1)
 	}
 
-	// Initialize querier
 	querier := queries.NewQuerier(db)
-
-	// Initialize in-memory session cache
 	sessionCache := cache.NewSessionCache()
-
-	// Initialize session store with database + in-memory cache
 	sessionStore := session.New(querier, sessionCache, cfg.SessionTTL)
 	sessionStore.SetSecure(cfg.AppEnv == "production")
-
-	// Start background cleanup for expired sessions, password reset tokens, and cache
 	startBackgroundCleanup(querier, sessionCache)
 
-	// Initialize services
 	authService := services.NewAuthService(querier, services.AuthServiceConfig{
 		SessionSecret:      cfg.SessionSecret,
 		GoogleClientID:     cfg.GoogleClientID,
@@ -98,14 +87,11 @@ func main() {
 	userService := services.NewUserService(querier)
 	memberService := services.NewMemberService(querier)
 	fingerprintImportService := services.NewFingerprintImportService(querier)
+	attendanceService := services.NewAttendanceService(querier)
 
-	// Initialize Asset service (for production builds with hashed filenames)
 	assetService := services.NewAssetService("./dist/.vite/manifest.json", ".vite-port", cfg.IsDevelopment())
-
-	// Initialize Inertia service (auto-detects Vite from .vite-port)
 	inertiaService := services.NewInertiaService(assetService, sessionStore)
 
-	// Create storage directories
 	if err := os.MkdirAll("storage/uploads", 0755); err != nil {
 		slog.Error("failed to create uploads directory", "error", err)
 		os.Exit(1)
@@ -114,10 +100,8 @@ func main() {
 		slog.Error("failed to create avatars directory", "error", err)
 		os.Exit(1)
 	}
-	// Setup CSRF middleware (Secure cookies only in production with HTTPS)
 	csrfMiddleware := routes.SetupCSRFMiddleware(cfg.SessionSecret, cfg.AppEnv == "production")
 
-	// Setup mailer service (multi-provider: log / resend / mailtrap)
 	appURL := routes.GetAppURL(cfg.AppPort, cfg.AppEnv)
 	mailerService := services.NewMailerService(querier, services.MailConfig{
 		Driver:          services.MailDriver(cfg.MailDriver),
@@ -128,16 +112,14 @@ func main() {
 		MailtrapInboxID: cfg.MailtrapInboxID,
 	}, appURL)
 
-	// Initialize handlers
 	uploadHandler := handlers.NewUploadHandler(sessionStore, userService, "storage/uploads")
 	routeHandlers := routes.Handlers{
 		Public: handlers.NewPublicHandler(authService, userService, inertiaService, assetService),
 		Auth:   handlers.NewAuthHandler(authService, sessionStore, inertiaService, mailerService),
-		App:    handlers.NewAppHandler(userService, memberService, fingerprintImportService, sessionStore, inertiaService),
+		App:    handlers.NewAppHandler(userService, memberService, fingerprintImportService, attendanceService, sessionStore, inertiaService),
 		Upload: uploadHandler,
 	}
 
-	// Setup password reset handler
 	passwordResetHandler := routes.SetupPasswordResetHandler(
 		mailerService,
 		userService,
@@ -146,31 +128,19 @@ func main() {
 	)
 	routeHandlers.PasswordReset = passwordResetHandler
 	app := fiber.New(fiber.Config{
-		AppName:      "Laju",
+		AppName:      "Ruang Sanad Ops",
 		ErrorHandler: customErrorHandler,
-		// Required for TUS resumable upload — streams request body instead of buffering
 		StreamRequestBody: true,
-		// Read buffer for streaming large uploads
 		ReadBufferSize: 64 * 1024,
 	})
 
-	// Global middleware
-	// Logger: only in development (avoids string allocation per request in prod)
 	if cfg.IsDevelopment() {
 		app.Use(logger.New())
 	}
 	app.Use(recover.New())
 	app.Use(middlewares.SecurityHeaders())
-
-	// Response compression (brotli > gzip, best speed for low CPU overhead)
-	app.Use(compress.New(compress.Config{
-		Level: compress.LevelBestSpeed,
-	}))
-
-	// Inertia middleware: asset version checking, shared props, Vary header
+	app.Use(compress.New(compress.Config{Level: compress.LevelBestSpeed}))
 	app.Use(inertiaService.Middleware())
-
-	// CORS with explicit allowed origins (no AllowOriginsFunc in production)
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     strings.Join(cfg.AllowedOrigins, ","),
 		AllowCredentials: true,
@@ -185,7 +155,6 @@ func main() {
 		})
 	})
 
-	// Setup routes (includes static file serving)
 	routes.SetupRoutes(app, routeHandlers, sessionStore, userService, mailerService, csrfMiddleware)
 
 	go func() {
@@ -212,101 +181,73 @@ func main() {
 	slog.Info("server stopped")
 }
 
-// initDatabase initializes the SQLite database with optimized settings
 func initDatabase(dbPath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Configure connection pooling (optimized for SQLite single-instance)
-	db.SetMaxOpenConns(15)                  // Maximum number of open connections
-	db.SetMaxIdleConns(10)                  // Keep more idle connections ready (avoid churn)
-	db.SetConnMaxLifetime(5 * time.Minute)  // Maximum lifetime for a connection
-	db.SetConnMaxIdleTime(30 * time.Second) // Recycle stale idle connections
+	db.SetMaxOpenConns(15)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(30 * time.Second)
 
-	// Enable foreign keys
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return nil, err
 	}
-
-	// Optimize SQLite for production (WAL mode for better concurrency)
 	if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
 		return nil, err
 	}
-
-	// Balance between durability and performance
 	if _, err := db.Exec("PRAGMA synchronous = NORMAL"); err != nil {
 		return nil, err
 	}
-
-	// Set cache size to 16MB (negative value = KB) - optimized for Vultr HF 1-2GB RAM
 	if _, err := db.Exec("PRAGMA cache_size = -16000"); err != nil {
 		return nil, err
 	}
-
-	// Enable memory-mapped I/O for NVMe performance (256MB)
 	if _, err := db.Exec("PRAGMA mmap_size = 268435456"); err != nil {
 		return nil, err
 	}
-
-	// Store temporary tables in memory for better performance
 	if _, err := db.Exec("PRAGMA temp_store = MEMORY"); err != nil {
 		return nil, err
 	}
-
-	// Set busy timeout to 5 seconds (wait for locks instead of failing immediately)
 	if _, err := db.Exec("PRAGMA busy_timeout = 5000"); err != nil {
 		return nil, err
 	}
-
-	// Set WAL autocheckpoint to 1000 pages (default, but explicit is better)
 	if _, err := db.Exec("PRAGMA wal_autocheckpoint = 1000"); err != nil {
 		return nil, err
 	}
-
-	// Test connection
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 
-	// Log database optimization status
 	logDatabaseOptimizations(db)
-
 	return db, nil
 }
 
-// logDatabaseOptimizations logs the current SQLite optimization settings
 func logDatabaseOptimizations(db *sql.DB) {
 	var journalMode, synchronous string
 	var cacheSize, busyTimeout, mmapSize, walAutocheckpoint int
 
-	// Query current settings
 	err := db.QueryRow("PRAGMA journal_mode").Scan(&journalMode)
 	if err != nil {
 		slog.Warn("could not verify journal_mode", "error", err)
 	}
-
 	err = db.QueryRow("PRAGMA synchronous").Scan(&synchronous)
 	if err != nil {
 		slog.Warn("could not verify synchronous", "error", err)
 	}
-
 	err = db.QueryRow("PRAGMA cache_size").Scan(&cacheSize)
 	if err != nil {
 		slog.Warn("could not verify cache_size", "error", err)
 	}
-
 	err = db.QueryRow("PRAGMA busy_timeout").Scan(&busyTimeout)
 	if err != nil {
 		slog.Warn("could not verify busy_timeout", "error", err)
 	}
-
 	err = db.QueryRow("PRAGMA mmap_size").Scan(&mmapSize)
 	if err != nil {
 		slog.Warn("could not verify mmap_size", "error", err)
 	}
-
 	err = db.QueryRow("PRAGMA wal_autocheckpoint").Scan(&walAutocheckpoint)
 	if err != nil {
 		slog.Warn("could not verify wal_autocheckpoint", "error", err)
@@ -322,14 +263,11 @@ func logDatabaseOptimizations(db *sql.DB) {
 	)
 }
 
-// startBackgroundCleanup runs periodic cleanup of expired sessions, password
-// reset tokens, and in-memory session cache entries.
 func startBackgroundCleanup(querier *queries.Querier, sessionCache *cache.SessionCache) {
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 
-		// Run cleanup immediately on startup
 		if err := querier.DeleteExpiredSessions(context.Background()); err != nil {
 			slog.Error("cleanup: failed to delete expired sessions", "error", err)
 		} else {
@@ -347,18 +285,18 @@ func startBackgroundCleanup(querier *queries.Querier, sessionCache *cache.Sessio
 			slog.Debug("cleanup: expired email verifications deleted")
 		}
 
-	for range ticker.C {
-		if err := querier.DeleteExpiredSessions(context.Background()); err != nil {
-			slog.Error("cleanup: failed to delete expired sessions", "error", err)
+		for range ticker.C {
+			if err := querier.DeleteExpiredSessions(context.Background()); err != nil {
+				slog.Error("cleanup: failed to delete expired sessions", "error", err)
+			}
+			if err := querier.DeleteExpiredPasswordResets(context.Background()); err != nil {
+				slog.Error("cleanup: failed to delete expired password resets", "error", err)
+			}
+			sessionCache.EvictExpired()
+			if err := querier.DeleteExpiredEmailVerifications(context.Background()); err != nil {
+				slog.Error("cleanup: failed to delete expired email verifications", "error", err)
+			}
 		}
-		if err := querier.DeleteExpiredPasswordResets(context.Background()); err != nil {
-			slog.Error("cleanup: failed to delete expired password resets", "error", err)
-		}
-		sessionCache.EvictExpired()
-		if err := querier.DeleteExpiredEmailVerifications(context.Background()); err != nil {
-			slog.Error("cleanup: failed to delete expired email verifications", "error", err)
-		}
-	}
 	}()
 	slog.Info("background cleanup started (interval: 1h)")
 }
@@ -368,28 +306,20 @@ func runMigrations(db *sql.DB, migrationsDir string) error {
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		return err
 	}
-
 	if err := goose.Up(db, migrationsDir); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-// customErrorHandler handles Fiber errors.
-// Internal errors are logged server-side; clients receive a generic message
-// to prevent information leakage (file paths, SQL queries, stack traces).
 func customErrorHandler(c *fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
 	if e, ok := err.(*fiber.Error); ok {
 		code = e.Code
 	}
 
-	// Log full error server-side
 	slog.Error("request error", "method", c.Method(), "path", c.Path(), "status", code, "error", err)
 
-	// For Fiber errors (4xx), the message is safe to return.
-	// For 5xx, return a generic message to avoid leaking internals.
 	msg := "Internal Server Error"
 	if code < 500 {
 		msg = err.Error()
