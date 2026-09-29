@@ -30,70 +30,51 @@ func NewPasswordResetHandler(
 	}
 }
 
-// ShowForgotPasswordForm displays the forgot password page
 func (h *PasswordResetHandler) ShowForgotPasswordForm(c *fiber.Ctx) error {
 	return h.inertiaService.Render(c, "auth/ForgotPassword", fiber.Map{
 		"Title": "Forgot Password",
 	})
 }
 
-// SendResetLink handles sending password reset link
 func (h *PasswordResetHandler) SendResetLink(c *fiber.Ctx) error {
 	var req struct {
 		Email string `json:"email"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		h.store.Flash(c, "error", "Invalid request body")
+		return h.inertiaService.Redirect(c, "/forgot-password")
 	}
 
-	// Validate email
+	req.Email = strings.TrimSpace(req.Email)
 	if req.Email == "" || !strings.Contains(req.Email, "@") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Please provide a valid email address",
-		})
+		h.store.Flash(c, "error", "Please provide a valid email address")
+		return h.inertiaService.Redirect(c, "/forgot-password")
 	}
 
+	// Keep the same generic response whether or not the account exists.
 	successMsg := "If an account exists with that email, we've sent a password reset link."
-
-	// Don't reveal whether email exists (security best practice)
 	user, err := h.userService.GetProfileByEmail(req.Email)
-	if err != nil {
-		return h.inertiaService.Render(c, "auth/ForgotPassword", fiber.Map{
-			"success": successMsg,
-		})
+	if err == nil {
+		if err := h.mailerService.SendPasswordResetEmail(c.Context(), user.Email, user.ID); err != nil {
+			slog.Error("failed to send password reset email", "user_id", user.ID, "error", err)
+		}
 	}
 
-	// MailerService generates the token, stores it in DB, and sends the email
-	if err := h.mailerService.SendPasswordResetEmail(c.Context(), user.Email, user.ID); err != nil {
-		return h.inertiaService.Render(c, "auth/ForgotPassword", fiber.Map{
-			"success": successMsg,
-		})
-	}
-
-	return h.inertiaService.Render(c, "auth/ForgotPassword", fiber.Map{
-		"success": successMsg,
-	})
+	h.store.Flash(c, "success", successMsg)
+	return h.inertiaService.Redirect(c, "/forgot-password")
 }
 
-// ShowResetPasswordForm displays the reset password page
 func (h *PasswordResetHandler) ShowResetPasswordForm(c *fiber.Ctx) error {
 	token := c.Params("token")
-
 	if token == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid reset link",
-		})
+		h.store.Flash(c, "error", "Invalid reset link")
+		return h.inertiaService.Redirect(c, "/forgot-password")
 	}
 
-	// Validate token
-	_, err := h.mailerService.ValidateResetToken(c.Context(), token)
-	if err != nil {
-		return h.inertiaService.Render(c, "auth/ResetPassword", fiber.Map{
-			"error": "Invalid or expired reset link",
-		})
+	if _, err := h.mailerService.ValidateResetToken(c.Context(), token); err != nil {
+		h.store.Flash(c, "error", "Invalid or expired reset link")
+		return h.inertiaService.Redirect(c, "/forgot-password")
 	}
 
 	return h.inertiaService.Render(c, "auth/ResetPassword", fiber.Map{
@@ -102,9 +83,9 @@ func (h *PasswordResetHandler) ShowResetPasswordForm(c *fiber.Ctx) error {
 	})
 }
 
-// ResetPassword handles password reset
 func (h *PasswordResetHandler) ResetPassword(c *fiber.Ctx) error {
 	token := c.Params("token")
+	resetPath := "/reset-password/" + token
 
 	var req struct {
 		Password          string `json:"password"`
@@ -112,77 +93,55 @@ func (h *PasswordResetHandler) ResetPassword(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		h.store.Flash(c, "error", "Invalid request body")
+		return h.inertiaService.Redirect(c, resetPath)
 	}
 
-	// Validate password
 	if req.Password == "" || len(req.Password) < 8 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Password must be at least 8 characters",
-		})
+		h.store.Flash(c, "error", "Password must be at least 8 characters")
+		return h.inertiaService.Redirect(c, resetPath)
 	}
 
 	if err := validatePasswordStrength(req.Password); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		h.store.Flash(c, "error", err.Error())
+		return h.inertiaService.Redirect(c, resetPath)
 	}
 
 	if req.Password != req.PasswordConfirmed {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Passwords do not match",
-		})
+		h.store.Flash(c, "error", "Passwords do not match")
+		return h.inertiaService.Redirect(c, resetPath)
 	}
 
-	// Validate token
 	tokenEntry, err := h.mailerService.ValidateResetToken(c.Context(), token)
 	if err != nil {
-		return h.inertiaService.Render(c, "auth/ResetPassword", fiber.Map{
-			"token": token,
-			"error": "Invalid or expired reset link",
-		})
+		h.store.Flash(c, "error", "Invalid or expired reset link")
+		return h.inertiaService.Redirect(c, "/forgot-password")
 	}
 
-	// Get user
 	user, err := h.userService.GetProfile(tokenEntry.UserID)
 	if err != nil {
-		return h.inertiaService.Render(c, "auth/ResetPassword", fiber.Map{
-			"token": token,
-			"error": "User not found",
-		})
+		h.store.Flash(c, "error", "User not found")
+		return h.inertiaService.Redirect(c, "/forgot-password")
 	}
 
-	// Hash new password
 	hashedPassword, err := services.HashPassword(req.Password)
 	if err != nil {
-		return h.inertiaService.Render(c, "auth/ResetPassword", fiber.Map{
-			"token": token,
-			"error": "Failed to reset password",
-		})
+		slog.Error("failed to hash reset password", "user_id", user.ID, "error", err)
+		h.store.Flash(c, "error", "Failed to reset password")
+		return h.inertiaService.Redirect(c, resetPath)
 	}
 
-	// Update user password
-	err = h.userService.UpdatePassword(user.ID, hashedPassword)
-	if err != nil {
-		return h.inertiaService.Render(c, "auth/ResetPassword", fiber.Map{
-			"token": token,
-			"error": "Failed to reset password",
-		})
+	if err := h.userService.UpdatePassword(user.ID, hashedPassword); err != nil {
+		slog.Error("failed to update reset password", "user_id", user.ID, "error", err)
+		h.store.Flash(c, "error", "Failed to reset password")
+		return h.inertiaService.Redirect(c, resetPath)
 	}
 
-	// Invalidate token so it can't be reused
 	h.mailerService.InvalidateResetToken(c.Context(), token)
-
-	// Invalidate all sessions for this user — any stolen session cookie
-	// becomes invalid after a password reset.
 	if err := h.userService.InvalidateAllSessions(user.ID); err != nil {
 		slog.Error("failed to invalidate sessions after password reset", "user_id", user.ID, "error", err)
 	}
 
-	return h.inertiaService.Render(c, "auth/ResetPassword", fiber.Map{
-		"token":   token,
-		"success": "Password reset successfully. You can now login with your new password.",
-	})
+	h.store.Flash(c, "success", "Password reset successfully. You can now login with your new password.")
+	return h.inertiaService.Redirect(c, "/login")
 }
