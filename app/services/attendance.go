@@ -74,11 +74,12 @@ func (s *AttendanceService) UpdateProfile(ownerUserID, memberID int64, input mod
 		return &AttendanceValidationError{Message: "Tipe jadwal tidak valid."}
 	}
 
-	if input.WorkMode == "remote" && input.ScheduleType == "shift" {
-		// Remote may still use a shift, so this is allowed intentionally.
+	ctx := context.Background()
+	if err := s.querier.EnsureAttendanceFoundation(ctx, ownerUserID); err != nil {
+		return err
 	}
 
-	if err := s.querier.UpdateMemberAttendanceProfile(context.Background(), ownerUserID, memberID, input); err != nil {
+	if err := s.querier.UpdateMemberAttendanceProfile(ctx, ownerUserID, memberID, input); err != nil {
 		if errors.Is(err, queries.ErrAttendanceProfileNotFound) {
 			return ErrAttendanceProfileNotFound
 		}
