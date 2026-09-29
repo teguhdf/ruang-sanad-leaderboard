@@ -111,13 +111,15 @@ func main() {
 		MailtrapToken:   cfg.MailtrapAPIToken,
 		MailtrapInboxID: cfg.MailtrapInboxID,
 	}, appURL)
+	employeeAttendanceService := services.NewEmployeeAttendanceService(querier, mailerService)
 
 	uploadHandler := handlers.NewUploadHandler(sessionStore, userService, "storage/uploads")
 	routeHandlers := routes.Handlers{
-		Public: handlers.NewPublicHandler(authService, userService, inertiaService, assetService),
-		Auth:   handlers.NewAuthHandler(authService, sessionStore, inertiaService, mailerService),
-		App:    handlers.NewAppHandler(userService, memberService, fingerprintImportService, attendanceService, sessionStore, inertiaService),
-		Upload: uploadHandler,
+		Public:             handlers.NewPublicHandler(authService, userService, inertiaService, assetService),
+		Auth:               handlers.NewAuthHandler(authService, sessionStore, inertiaService, mailerService),
+		App:                handlers.NewAppHandler(userService, memberService, fingerprintImportService, attendanceService, sessionStore, inertiaService),
+		EmployeeAttendance: handlers.NewEmployeeAttendanceHandler(employeeAttendanceService, sessionStore, inertiaService),
+		Upload:             uploadHandler,
 	}
 
 	passwordResetHandler := routes.SetupPasswordResetHandler(
@@ -128,10 +130,10 @@ func main() {
 	)
 	routeHandlers.PasswordReset = passwordResetHandler
 	app := fiber.New(fiber.Config{
-		AppName:      "Ruang Sanad Ops",
-		ErrorHandler: customErrorHandler,
+		AppName:           "Ruang Sanad Ops",
+		ErrorHandler:      customErrorHandler,
 		StreamRequestBody: true,
-		ReadBufferSize: 64 * 1024,
+		ReadBufferSize:    64 * 1024,
 	})
 
 	if cfg.IsDevelopment() {
