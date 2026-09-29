@@ -102,8 +102,11 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	employee.Post("/my-attendance/adjustments", employeeAttendanceHandler.RequestAdjustment)
 	employee.Post("/my-attendance/overtime", employeeAttendanceHandler.RequestOvertime)
 
-	authMiddleware := middlewares.AuthRequired(store)
-	uploadHandler.RegisterTUSRoutes(app, authMiddleware)
+	uploadHandler.RegisterTUSRoutes(
+		app,
+		middlewares.AuthRequired(store),
+		middlewares.RoleRequired(userService, models.RoleSPV, models.RoleAdmin),
+	)
 
 	admin := app.Group("/admin", middlewares.AdminRequired(store, userService), middlewares.NoCache())
 	admin.Get("/", func(c *fiber.Ctx) error { return c.JSON(fiber.Map{"message": "Admin dashboard"}) })
