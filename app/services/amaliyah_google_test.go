@@ -9,7 +9,18 @@ import (
 func TestGoogleSheetExportURL(t *testing.T) {
 	got, err := googleSheetExportURL("https://docs.google.com/spreadsheets/d/1SViTcU7Tp6QAV1ExampleSheetID/edit?gid=123#gid=123")
 	require.NoError(t, err)
-	require.Equal(t, "https://docs.google.com/spreadsheets/d/1SViTcU7Tp6QAV1ExampleSheetID/export?format=xlsx", got)
+	require.Equal(t, "https://docs.google.com/spreadsheets/d/1SViTcU7Tp6QAV1ExampleSheetID/export?format=xlsx&gid=123", got)
+}
+
+func TestGoogleSheetExportURLPreservesFragmentGID(t *testing.T) {
+	got, err := googleSheetExportURL("https://docs.google.com/spreadsheets/d/1SViTcU7Tp6QAV1ExampleSheetID/edit#gid=456")
+	require.NoError(t, err)
+	require.Equal(t, "https://docs.google.com/spreadsheets/d/1SViTcU7Tp6QAV1ExampleSheetID/export?format=xlsx&gid=456", got)
+}
+
+func TestGoogleSheetExportURLRejectsInvalidGID(t *testing.T) {
+	_, err := googleSheetExportURL("https://docs.google.com/spreadsheets/d/1SViTcU7Tp6QAV1ExampleSheetID/edit?gid=abc")
+	require.Error(t, err)
 }
 
 func TestGoogleSheetExportURLRejectsNonGoogleHost(t *testing.T) {
