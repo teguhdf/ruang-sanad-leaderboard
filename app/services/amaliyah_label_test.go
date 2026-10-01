@@ -18,6 +18,7 @@ func TestClassifyAmaliyahMetricLabelVariants(t *testing.T) {
 		"Dzikir Sore":          models.AmaliyahDzikirPetang,
 		"Zikir Petang / Sore":  models.AmaliyahDzikirPetang,
 		"Dzikir Malam":         models.AmaliyahDzikirPetang,
+		"Dzizkir pertang":      models.AmaliyahDzikirPetang,
 	}
 
 	for label, want := range tests {
