@@ -66,33 +66,33 @@
 </script>
 
 <div class="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50">
-	<aside class="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-neutral-200/80 bg-white/95 px-3 py-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-neutral-925/95 lg:flex">
-		<a href={homeHref()} use:inertia class="mb-5 flex items-center gap-3 rounded-2xl px-3 py-3 no-underline transition-colors hover:bg-neutral-100 dark:hover:bg-white/[0.05]">
-			<div class="grid h-11 w-11 place-items-center rounded-2xl bg-brand-600 text-sm font-black tracking-tight text-white shadow-sm">RS</div>
+	<aside class="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-brand-100/80 bg-gradient-to-b from-white via-white to-brand-50/35 px-3 py-4 backdrop-blur-xl dark:border-brand-900/35 dark:from-neutral-925 dark:via-neutral-925 dark:to-brand-950/20 lg:flex">
+		<a href={homeHref()} use:inertia class="mb-5 flex items-center gap-3 rounded-2xl px-3 py-3 no-underline transition-colors hover:bg-brand-50/70 dark:hover:bg-brand-950/30">
+			<div class="grid h-11 w-11 place-items-center rounded-2xl bg-brand-600 text-sm font-black tracking-tight text-white shadow-sm ring-4 ring-brand-100/80 dark:ring-brand-900/45">RS</div>
 			<div class="min-w-0">
 				<div class="truncate text-[15px] font-bold tracking-tight text-neutral-900 dark:text-white">Ruang Sanad Ops</div>
 				<div class="mt-0.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{user?.role === "employee" ? "Employee Workspace" : "Team Operations"}</div>
 			</div>
 		</a>
 
-		<div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">Workspace</div>
+		<div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-brand-500/85 dark:text-brand-300/75">Workspace</div>
 		<nav class="grid gap-1.5">
 			{#each menuLinks() as item}
 				{@const Icon = item.icon}
-				<a href={item.href} use:inertia class="group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-semibold transition-all {item.group === group ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/55 dark:text-brand-100' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-white/[0.05] dark:hover:text-white'}">
-					<div class="grid h-8 w-8 place-items-center rounded-xl {item.group === group ? 'bg-white/65 dark:bg-white/[0.08]' : 'bg-transparent'}"><Icon size="19" stroke-width="2" /></div>
+				<a href={item.href} use:inertia class="group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-semibold transition-all {item.group === group ? 'bg-brand-50 text-brand-800 shadow-sm ring-1 ring-brand-100 dark:bg-brand-900/30 dark:text-brand-100 dark:ring-brand-800/45' : 'text-neutral-600 hover:bg-brand-50/65 hover:text-brand-800 dark:text-neutral-400 dark:hover:bg-brand-950/25 dark:hover:text-brand-100'}">
+					<div class="grid h-8 w-8 place-items-center rounded-xl transition-all {item.group === group ? 'bg-brand-600 text-white shadow-sm' : 'text-neutral-500 group-hover:bg-white group-hover:text-brand-700 group-hover:shadow-sm dark:text-neutral-400 dark:group-hover:bg-white/[0.06] dark:group-hover:text-brand-200'}"><Icon size="18" stroke-width="2" /></div>
 					<span>{item.label}</span>
-					{#if item.group === group}<ChevronRight size="16" class="ml-auto opacity-70" />{/if}
+					{#if item.group === group}<ChevronRight size="16" class="ml-auto text-brand-500" />{/if}
 				</a>
 			{/each}
 		</nav>
 
-		<div class="mt-auto rounded-2xl bg-neutral-100/80 p-3 dark:bg-white/[0.04]">
+		<div class="mt-auto rounded-2xl bg-brand-50/75 p-3 shadow-sm ring-1 ring-brand-100/80 dark:bg-brand-950/20 dark:ring-brand-900/35">
 			<div class="flex items-center gap-3">
 				{#if user?.avatar}
-					<img src={user.avatar} alt={user.name} class="h-10 w-10 rounded-2xl object-cover" />
+					<img src={user.avatar} alt={user.name} class="h-10 w-10 rounded-2xl object-cover ring-2 ring-white dark:ring-white/10" />
 				{:else}
-					<div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-sm font-extrabold text-white">{user?.name?.charAt(0).toUpperCase() ?? "U"}</div>
+					<div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-sm font-extrabold text-white shadow-sm">{user?.name?.charAt(0).toUpperCase() ?? "U"}</div>
 				{/if}
 				<div class="min-w-0 flex-1">
 					<div class="truncate text-xs font-bold text-neutral-900 dark:text-white">{user?.name ?? "User"}</div>
@@ -107,8 +107,8 @@
 	</aside>
 
 	<header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutral-200/80 bg-neutral-50/92 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-neutral-950/92 lg:hidden">
-		<button type="button" onclick={() => (mobileOpen = true)} class="grid h-10 w-10 place-items-center rounded-full hover:bg-neutral-200/70 dark:hover:bg-white/[0.06]" aria-label="Buka menu"><Menu size="21" /></button>
-		<div class="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-xs font-black text-white">RS</div>
+		<button type="button" onclick={() => (mobileOpen = true)} class="grid h-10 w-10 place-items-center rounded-full hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/30 dark:hover:text-brand-200" aria-label="Buka menu"><Menu size="21" /></button>
+		<div class="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-xs font-black text-white shadow-sm ring-4 ring-brand-100/70 dark:ring-brand-900/40">RS</div>
 		<div class="min-w-0 flex-1"><div class="truncate text-sm font-bold">{pageTitle()}</div><div class="text-[10px] text-neutral-500">Ruang Sanad Ops</div></div>
 		<DarkModeToggle />
 	</header>
@@ -116,15 +116,20 @@
 	{#if mobileOpen}
 		<div class="fixed inset-0 z-50 lg:hidden">
 			<button type="button" class="absolute inset-0 bg-black/35 backdrop-blur-[2px]" onclick={() => (mobileOpen = false)} aria-label="Tutup menu" transition:fade={{ duration: 140 }}></button>
-			<aside class="absolute inset-y-0 left-0 flex w-[min(86vw,320px)] flex-col bg-white p-4 shadow-2xl dark:bg-neutral-925" transition:fly={{ x: -24, duration: 190 }}>
-				<div class="mb-5 flex items-center gap-3 px-2 py-2"><div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-xs font-black text-white">RS</div><div class="flex-1"><div class="text-sm font-bold">Ruang Sanad Ops</div><div class="text-[10px] text-neutral-500">{user?.role === "employee" ? "Employee Workspace" : "Team Operations"}</div></div><button type="button" onclick={() => (mobileOpen = false)} class="grid h-9 w-9 place-items-center rounded-full hover:bg-neutral-100 dark:hover:bg-white/[0.05]" aria-label="Tutup menu"><X size="20" /></button></div>
+			<aside class="absolute inset-y-0 left-0 flex w-[min(86vw,320px)] flex-col border-r border-brand-100/80 bg-gradient-to-b from-white via-white to-brand-50/45 p-4 shadow-2xl dark:border-brand-900/35 dark:from-neutral-925 dark:via-neutral-925 dark:to-brand-950/20" transition:fly={{ x: -24, duration: 190 }}>
+				<div class="mb-5 flex items-center gap-3 rounded-2xl px-2 py-2"><div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-xs font-black text-white shadow-sm ring-4 ring-brand-100/70 dark:ring-brand-900/40">RS</div><div class="flex-1"><div class="text-sm font-bold">Ruang Sanad Ops</div><div class="text-[10px] text-neutral-500">{user?.role === "employee" ? "Employee Workspace" : "Team Operations"}</div></div><button type="button" onclick={() => (mobileOpen = false)} class="grid h-9 w-9 place-items-center rounded-full hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/30 dark:hover:text-brand-200" aria-label="Tutup menu"><X size="20" /></button></div>
+				<div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-brand-500/85 dark:text-brand-300/75">Workspace</div>
 				<nav class="grid gap-1.5">
 					{#each menuLinks() as item}
 						{@const Icon = item.icon}
-						<a href={item.href} use:inertia onclick={() => (mobileOpen = false)} class="flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-semibold {item.group === group ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/55 dark:text-brand-100' : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/[0.05]'}"><Icon size="19" />{item.label}</a>
+						<a href={item.href} use:inertia onclick={() => (mobileOpen = false)} class="group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-semibold transition-all {item.group === group ? 'bg-brand-50 text-brand-800 shadow-sm ring-1 ring-brand-100 dark:bg-brand-900/30 dark:text-brand-100 dark:ring-brand-800/45' : 'text-neutral-600 hover:bg-brand-50/65 hover:text-brand-800 dark:text-neutral-300 dark:hover:bg-brand-950/25 dark:hover:text-brand-100'}">
+							<div class="grid h-8 w-8 place-items-center rounded-xl {item.group === group ? 'bg-brand-600 text-white shadow-sm' : 'text-neutral-500 group-hover:bg-white group-hover:text-brand-700 dark:text-neutral-400 dark:group-hover:bg-white/[0.06] dark:group-hover:text-brand-200'}"><Icon size="18" /></div>
+							<span>{item.label}</span>
+							{#if item.group === group}<ChevronRight size="16" class="ml-auto text-brand-500" />{/if}
+						</a>
 					{/each}
 				</nav>
-				<div class="mt-auto rounded-2xl bg-neutral-100 p-3 dark:bg-white/[0.04]"><div class="text-xs font-bold">{user?.name ?? "User"}</div><div class="mt-0.5 truncate text-[10px] text-neutral-500">{user?.email ?? ""}</div><button type="button" onclick={handleLogout} class="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-error/10 px-4 text-xs font-bold text-error"><LogOut size="16" /> Logout</button></div>
+				<div class="mt-auto rounded-2xl bg-brand-50/75 p-3 shadow-sm ring-1 ring-brand-100/80 dark:bg-brand-950/20 dark:ring-brand-900/35"><div class="text-xs font-bold">{user?.name ?? "User"}</div><div class="mt-0.5 truncate text-[10px] text-neutral-500">{user?.email ?? ""}</div><button type="button" onclick={handleLogout} class="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-error/10 px-4 text-xs font-bold text-error"><LogOut size="16" /> Logout</button></div>
 			</aside>
 		</div>
 	{/if}
