@@ -5,6 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -18,11 +22,25 @@ var (
 	ErrAmaliyahInvalidFile   = errors.New("workspace amaliyah tidak valid")
 )
 
+const maxGoogleSheetExportBytes = 10 * 1024 * 1024
+
 type AmaliyahValidationError struct {
 	Message string
 }
 
 func (e *AmaliyahValidationError) Error() string { return e.Message }
+
+type AmaliyahSyncFailure struct {
+	MemberID   int64
+	MemberName string
+	Message    string
+}
+
+type AmaliyahSyncReport struct {
+	Total    int
+	Synced   int
+	Failures []AmaliyahSyncFailure
+}
 
 var amaliyahMetricOrder = []string{
 	models.AmaliyahTahajud,
@@ -75,6 +93,131 @@ func (s *MemberService) ImportAmaliyahWorkspace(ownerUserID, memberID int64, per
 		return err
 	}
 	return nil
+}
+
+// SyncAmaliyahFromGoogleSheets refreshes every member snapshot from the public
+// Google Sheet URL that is already stored on the member. URLs are never fetched
+// directly; the spreadsheet ID is extracted and a fixed docs.google.com export
+// URL is constructed to avoid arbitrary outbound requests.
+func (s *MemberService) SyncAmaliyahFromGoogleSheets(ctx context.Context, ownerUserID int64, periodMonth string) (*AmaliyahSyncReport, error) {
+	periodMonth = strings.TrimSpace(periodMonth)
+	if !validPeriodMonth(periodMonth) {
+		return nil, ErrAmaliyahInvalidPeriod
+	}
+
+	members, err := s.ListMembers(ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	report := &AmaliyahSyncReport{Total: len(members), Failures: make([]AmaliyahSyncFailure, 0)}
+	for _, member := range members {
+		data, err := downloadPublicGoogleSheet(ctx, member.GoogleSheetURL)
+		if err != nil {
+			report.Failures = append(report.Failures, AmaliyahSyncFailure{
+				MemberID: member.ID, MemberName: member.Name, Message: err.Error(),
+			})
+			continue
+		}
+
+		sourceName := "Google Sheets · " + member.Name
+		if err := s.ImportAmaliyahWorkspace(ownerUserID, member.ID, periodMonth, sourceName, data); err != nil {
+			message := "workspace gagal diproses"
+			var validationErr *AmaliyahValidationError
+			if errors.As(err, &validationErr) {
+				message = validationErr.Message
+			}
+			report.Failures = append(report.Failures, AmaliyahSyncFailure{
+				MemberID: member.ID, MemberName: member.Name, Message: message,
+			})
+			continue
+		}
+		report.Synced++
+	}
+
+	return report, nil
+}
+
+func downloadPublicGoogleSheet(ctx context.Context, rawURL string) ([]byte, error) {
+	exportURL, err := googleSheetExportURL(rawURL)
+	if err != nil {
+		return nil, &AmaliyahValidationError{Message: "Link Google Sheets tidak valid."}
+	}
+
+	client := &http.Client{
+		Timeout: 20 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("terlalu banyak redirect")
+			}
+			host := strings.ToLower(req.URL.Hostname())
+			if req.URL.Scheme != "https" || !isAllowedGoogleExportHost(host) {
+				return errors.New("redirect Google Sheets tidak valid")
+			}
+			return nil
+		},
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, exportURL, nil)
+	if err != nil {
+		return nil, &AmaliyahValidationError{Message: "Google Sheets tidak dapat diminta."}
+	}
+	req.Header.Set("User-Agent", "RuangSanadOps/1.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, &AmaliyahValidationError{Message: "Google Sheets tidak dapat diakses. Pastikan aksesnya 'Anyone with the link'."}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, &AmaliyahValidationError{Message: fmt.Sprintf("Google Sheets mengembalikan HTTP %d.", resp.StatusCode)}
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxGoogleSheetExportBytes+1))
+	if err != nil || len(data) == 0 || len(data) > maxGoogleSheetExportBytes {
+		return nil, &AmaliyahValidationError{Message: "File export Google Sheets tidak dapat dibaca atau terlalu besar."}
+	}
+	if len(data) < 2 || data[0] != 'P' || data[1] != 'K' {
+		return nil, &AmaliyahValidationError{Message: "Google Sheets tidak menghasilkan workbook .xlsx. Pastikan link workspace benar dan dapat dilihat publik."}
+	}
+	return data, nil
+}
+
+func googleSheetExportURL(rawURL string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u.Scheme != "https" || !strings.EqualFold(u.Hostname(), "docs.google.com") {
+		return "", errors.New("invalid Google Sheets URL")
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	for i := 0; i+1 < len(parts); i++ {
+		if parts[i] != "d" {
+			continue
+		}
+		id := parts[i+1]
+		if !validGoogleSheetID(id) {
+			return "", errors.New("invalid spreadsheet ID")
+		}
+		return "https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx", nil
+	}
+	return "", errors.New("spreadsheet ID not found")
+}
+
+func validGoogleSheetID(value string) bool {
+	if len(value) < 10 || len(value) > 200 {
+		return false
+	}
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isAllowedGoogleExportHost(host string) bool {
+	return host == "docs.google.com" || strings.HasSuffix(host, ".googleusercontent.com") || strings.HasSuffix(host, ".google.com")
 }
 
 func (s *MemberService) GetAmaliyahLeaderboard(ownerUserID int64, periodMonth string) (*models.AmaliyahLeaderboard, error) {
