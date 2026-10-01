@@ -189,6 +189,21 @@ func googleSheetExportURL(rawURL string) (string, error) {
 		return "", errors.New("invalid Google Sheets URL")
 	}
 
+	gid := strings.TrimSpace(u.Query().Get("gid"))
+	if gid == "" && u.Fragment != "" {
+		fragment, fragmentErr := url.ParseQuery(strings.TrimPrefix(u.Fragment, "?"))
+		if fragmentErr == nil {
+			gid = strings.TrimSpace(fragment.Get("gid"))
+		}
+	}
+	if gid != "" {
+		for _, r := range gid {
+			if r < '0' || r > '9' {
+				return "", errors.New("invalid sheet gid")
+			}
+		}
+	}
+
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	for i := 0; i+1 < len(parts); i++ {
 		if parts[i] != "d" {
@@ -198,7 +213,12 @@ func googleSheetExportURL(rawURL string) (string, error) {
 		if !validGoogleSheetID(id) {
 			return "", errors.New("invalid spreadsheet ID")
 		}
-		return "https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx", nil
+		query := url.Values{}
+		query.Set("format", "xlsx")
+		if gid != "" {
+			query.Set("gid", gid)
+		}
+		return "https://docs.google.com/spreadsheets/d/" + id + "/export?" + query.Encode(), nil
 	}
 	return "", errors.New("spreadsheet ID not found")
 }
