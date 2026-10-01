@@ -186,36 +186,62 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 		return ""
 	}
 
+	// Workspace templates have evolved over time. Do not pin the month header to
+	// one row: locate the selected month anywhere in the amaliyah sheet, then
+	// discover the date row directly below it.
 	startColumn := 0
+	headerRow := 0
+	fallbackColumn := 0
+	fallbackRow := 0
 	targetHeader := normalizeAmaliyahText("BULAN " + monthName)
+	targetMonth := normalizeAmaliyahText(monthName)
 	for ref, cell := range cells {
-		if rowIndexFromCellRef(ref) != 14 {
+		row := rowIndexFromCellRef(ref)
+		if row <= 0 || row > 100 {
 			continue
 		}
-		if normalizeAmaliyahText(decode(cell)) == targetHeader {
+		value := normalizeAmaliyahText(decode(cell))
+		if value == targetHeader {
 			startColumn = columnIndexFromCellRef(ref)
+			headerRow = row
 			break
+		}
+		if fallbackColumn == 0 && value == targetMonth {
+			fallbackColumn = columnIndexFromCellRef(ref)
+			fallbackRow = row
 		}
 	}
 	if startColumn == 0 {
+		startColumn = fallbackColumn
+		headerRow = fallbackRow
+	}
+	if startColumn == 0 || headerRow == 0 {
 		return nil, &AmaliyahValidationError{Message: fmt.Sprintf("Kolom bulan %s tidak ditemukan di sheet amaliyah.", monthName)}
 	}
 
 	dayColumns := make([]int, 0, 31)
-	expectedDay := 1
-	for col := startColumn; col < startColumn+31; col++ {
-		cell, ok := cells[fmt.Sprintf("%s15", columnLetters(col))]
-		if !ok {
-			break
+	dayRow := 0
+	for candidateRow := headerRow + 1; candidateRow <= headerRow+5; candidateRow++ {
+		candidate := make([]int, 0, 31)
+		expectedDay := 1
+		for col := startColumn; col < startColumn+31; col++ {
+			cell, ok := cells[fmt.Sprintf("%s%d", columnLetters(col), candidateRow)]
+			if !ok {
+				break
+			}
+			value, err := strconv.ParseFloat(strings.TrimSpace(decode(cell)), 64)
+			if err != nil || int(value) != expectedDay {
+				break
+			}
+			candidate = append(candidate, col)
+			expectedDay++
 		}
-		value, err := strconv.ParseFloat(strings.TrimSpace(decode(cell)), 64)
-		if err != nil || int(value) != expectedDay {
-			break
+		if len(candidate) > len(dayColumns) {
+			dayColumns = candidate
+			dayRow = candidateRow
 		}
-		dayColumns = append(dayColumns, col)
-		expectedDay++
 	}
-	if len(dayColumns) == 0 {
+	if len(dayColumns) == 0 || dayRow == 0 {
 		return nil, &AmaliyahValidationError{Message: "Kolom tanggal untuk bulan yang dipilih tidak ditemukan."}
 	}
 
@@ -225,12 +251,12 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 			continue
 		}
 		row := rowIndexFromCellRef(ref)
-		if row < 16 || row > 40 {
+		if row <= dayRow || row > dayRow+50 {
 			continue
 		}
 		label := normalizeAmaliyahText(decode(cell))
 		switch {
-		case strings.Contains(label, "tilawah") && strings.Contains(label, "tadabur"):
+		case strings.Contains(label, "tilawah"):
 			metricRows[models.AmaliyahTilawahTadabur] = row
 		case label == "dzikir pagi":
 			metricRows[models.AmaliyahDzikirPagi] = row
