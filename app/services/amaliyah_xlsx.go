@@ -9,8 +9,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/maulanashalihin/laju-go/app/models"
+	"github.com/maulanashalihini/laju-go/app/models"
 )
 
 const maxAmaliyahXMLBytes = 8 * 1024 * 1024
@@ -86,6 +87,11 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 	if !ok {
 		return nil, &AmaliyahValidationError{Message: "Periode bulan tidak valid."}
 	}
+	periodStart, err := time.Parse("2006-01", periodMonth)
+	if err != nil {
+		return nil, &AmaliyahValidationError{Message: "Periode bulan tidak valid."}
+	}
+	maxCalendarDays := time.Date(periodStart.Year(), periodStart.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day()
 
 	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -219,12 +225,15 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 		return nil, &AmaliyahValidationError{Message: fmt.Sprintf("Kolom bulan %s tidak ditemukan di sheet amaliyah.", monthName)}
 	}
 
-	dayColumns := make([]int, 0, 31)
+	// Some templates keep a 31st column even for 30-day months. The calendar is
+	// the hard upper bound; within valid dates, only actual checkbox cells count
+	// toward the dynamic denominator.
+	dayColumns := make([]int, 0, maxCalendarDays)
 	dayRow := 0
 	for candidateRow := headerRow + 1; candidateRow <= headerRow+5; candidateRow++ {
-		candidate := make([]int, 0, 31)
+		candidate := make([]int, 0, maxCalendarDays)
 		expectedDay := 1
-		for col := startColumn; col < startColumn+31; col++ {
+		for col := startColumn; col < startColumn+maxCalendarDays; col++ {
 			cell, ok := cells[fmt.Sprintf("%s%d", columnLetters(col), candidateRow)]
 			if !ok {
 				break
