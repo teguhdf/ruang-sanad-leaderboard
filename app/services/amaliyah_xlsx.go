@@ -79,6 +79,21 @@ var monthNamesID = map[string]string{
 	"12": "DESEMBER",
 }
 
+var amaliyahMonthAliases = map[time.Month][]string{
+	time.January:   {"januari", "january", "jan"},
+	time.February:  {"februari", "february", "feb"},
+	time.March:     {"maret", "march", "mar"},
+	time.April:     {"april", "apr"},
+	time.May:       {"mei", "may"},
+	time.June:      {"juni", "june", "jun"},
+	time.July:      {"juli", "july", "jul"},
+	time.August:    {"agustus", "august", "agu", "aug"},
+	time.September: {"september", "sept", "sep"},
+	time.October:   {"oktober", "october", "okt", "oct"},
+	time.November:  {"november", "nov"},
+	time.December:  {"desember", "december", "des", "dec"},
+}
+
 func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMetricScore, error) {
 	if len(periodMonth) != 7 {
 		return nil, &AmaliyahValidationError{Message: "Periode bulan tidak valid."}
@@ -115,9 +130,6 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 			break
 		}
 	}
-	// Google Sheets export with a gid commonly returns a workbook containing
-	// only the selected tab. In that case the tab name is not authoritative and
-	// may have been renamed by the member, so safely use the sole exported sheet.
 	if relID == "" && len(workbook.Sheets) == 1 {
 		relID = workbook.Sheets[0].RelID
 	}
@@ -190,68 +202,20 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 			if err == nil && idx >= 0 && idx < len(sharedStrings) {
 				return sharedStrings[idx]
 			}
-		case "inlineStr":
-			return cell.Inline.Text
+		case "inlineStr", "str":
+			if cell.Inline.Text != "" {
+				return cell.Inline.Text
+			}
+			return cell.Value
 		default:
 			return cell.Value
 		}
 		return ""
 	}
 
-	startColumn := 0
-	headerRow := 0
-	fallbackColumn := 0
-	fallbackRow := 0
-	targetHeader := normalizeAmaliyahText("BULAN " + monthName)
-	targetMonth := normalizeAmaliyahText(monthName)
-	for ref, cell := range cells {
-		row := rowIndexFromCellRef(ref)
-		if row <= 0 || row > 100 {
-			continue
-		}
-		value := normalizeAmaliyahText(decode(cell))
-		if value == targetHeader {
-			startColumn = columnIndexFromCellRef(ref)
-			headerRow = row
-			break
-		}
-		if fallbackColumn == 0 && value == targetMonth {
-			fallbackColumn = columnIndexFromCellRef(ref)
-			fallbackRow = row
-		}
-	}
-	if startColumn == 0 {
-		startColumn = fallbackColumn
-		headerRow = fallbackRow
-	}
-	if startColumn == 0 || headerRow == 0 {
-		return nil, &AmaliyahValidationError{Message: fmt.Sprintf("Kolom bulan %s tidak ditemukan di sheet amaliyah.", monthName)}
-	}
-
-	dayColumns := make([]int, 0, maxCalendarDays)
-	dayRow := 0
-	for candidateRow := headerRow + 1; candidateRow <= headerRow+5; candidateRow++ {
-		candidate := make([]int, 0, maxCalendarDays)
-		expectedDay := 1
-		for col := startColumn; col < startColumn+maxCalendarDays; col++ {
-			cell, ok := cells[fmt.Sprintf("%s%d", columnLetters(col), candidateRow)]
-			if !ok {
-				break
-			}
-			value, err := strconv.ParseFloat(strings.TrimSpace(decode(cell)), 64)
-			if err != nil || int(value) != expectedDay {
-				break
-			}
-			candidate = append(candidate, col)
-			expectedDay++
-		}
-		if len(candidate) > len(dayColumns) {
-			dayColumns = candidate
-			dayRow = candidateRow
-		}
-	}
+	dayColumns, dayRow := locateAmaliyahMonthBlock(cells, decode, periodStart, maxCalendarDays)
 	if len(dayColumns) == 0 || dayRow == 0 {
-		return nil, &AmaliyahValidationError{Message: "Kolom tanggal untuk bulan yang dipilih tidak ditemukan."}
+		return nil, &AmaliyahValidationError{Message: fmt.Sprintf("Blok bulan %s tidak ditemukan. Parser sudah mencoba nama bulan lengkap, singkatan, format bulan-tahun, dan pola tanggal.", monthName)}
 	}
 
 	metricRows := make(map[string]int, 4)
@@ -321,6 +285,124 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 	return metrics, nil
 }
 
+func locateAmaliyahMonthBlock(cells map[string]amaliyahWorksheetCell, decode func(amaliyahWorksheetCell) string, period time.Time, maxDays int) ([]int, int) {
+	bestColumns := []int(nil)
+	bestRow := 0
+
+	for ref, cell := range cells {
+		row := rowIndexFromCellRef(ref)
+		if row <= 0 || row > 200 || !matchesAmaliyahMonthHeader(decode(cell), period) {
+			continue
+		}
+		baseColumn := columnIndexFromCellRef(ref)
+		for startOffset := 0; startOffset <= 3; startOffset++ {
+			startColumn := baseColumn + startOffset
+			for candidateRow := row; candidateRow <= row+6; candidateRow++ {
+				candidate := readAmaliyahDaySequence(cells, decode, startColumn, candidateRow, maxDays)
+				if len(candidate) > len(bestColumns) {
+					bestColumns = candidate
+					bestRow = candidateRow
+				}
+			}
+		}
+	}
+	if len(bestColumns) > 0 {
+		return bestColumns, bestRow
+	}
+
+	// Structural fallback for renamed/custom templates: if the exported sheet
+	// contains exactly one plausible 1..N date sequence, use it even when the
+	// month label itself was removed or formatted unexpectedly.
+	type block struct {
+		columns []int
+		row     int
+		col     int
+	}
+	blocks := make([]block, 0)
+	for ref, cell := range cells {
+		row := rowIndexFromCellRef(ref)
+		if row <= 0 || row > 200 {
+			continue
+		}
+		value, err := strconv.ParseFloat(strings.TrimSpace(decode(cell)), 64)
+		if err != nil || int(value) != 1 {
+			continue
+		}
+		col := columnIndexFromCellRef(ref)
+		candidate := readAmaliyahDaySequence(cells, decode, col, row, maxDays)
+		if len(candidate) < 7 {
+			continue
+		}
+		blocks = append(blocks, block{columns: candidate, row: row, col: col})
+	}
+	if len(blocks) == 1 {
+		return blocks[0].columns, blocks[0].row
+	}
+
+	// If several sequences exist, prefer a unique one whose length exactly
+	// matches the selected calendar month. Otherwise fail rather than guessing.
+	exact := make([]block, 0, len(blocks))
+	for _, item := range blocks {
+		if len(item.columns) == maxDays {
+			exact = append(exact, item)
+		}
+	}
+	if len(exact) == 1 {
+		return exact[0].columns, exact[0].row
+	}
+	return nil, 0
+}
+
+func readAmaliyahDaySequence(cells map[string]amaliyahWorksheetCell, decode func(amaliyahWorksheetCell) string, startColumn, row, maxDays int) []int {
+	candidate := make([]int, 0, maxDays)
+	for expectedDay := 1; expectedDay <= maxDays; expectedDay++ {
+		col := startColumn + expectedDay - 1
+		cell, ok := cells[fmt.Sprintf("%s%d", columnLetters(col), row)]
+		if !ok {
+			break
+		}
+		value, err := strconv.ParseFloat(strings.TrimSpace(decode(cell)), 64)
+		if err != nil || int(value) != expectedDay {
+			break
+		}
+		candidate = append(candidate, col)
+	}
+	return candidate
+}
+
+func matchesAmaliyahMonthHeader(value string, period time.Time) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.NewReplacer(
+		"/", " ", "-", " ", "_", " ", ".", " ", ",", " ", ":", " ", "(", " ", ")", " ",
+	).Replace(normalized)
+	fields := strings.Fields(normalized)
+	if len(fields) == 0 {
+		return false
+	}
+
+	containsToken := func(token string) bool {
+		for _, field := range fields {
+			if field == token {
+				return true
+			}
+		}
+		return false
+	}
+	for _, alias := range amaliyahMonthAliases[period.Month()] {
+		if containsToken(alias) {
+			return true
+		}
+	}
+
+	monthNumber := fmt.Sprintf("%02d", int(period.Month()))
+	year := strconv.Itoa(period.Year())
+	if containsToken(monthNumber) && containsToken(year) {
+		return true
+	}
+	compact := strings.ReplaceAll(normalized, " ", "")
+	return strings.Contains(compact, year+monthNumber) || strings.Contains(compact, monthNumber+year)
+}
+
 func classifyAmaliyahMetricLabel(value string) string {
 	normalized := normalizeAmaliyahText(value)
 	normalized = strings.NewReplacer(
@@ -335,8 +417,6 @@ func classifyAmaliyahMetricLabel(value string) string {
 	).Replace(normalized)
 	normalized = normalizeAmaliyahText(normalized)
 
-	// Historical workspaces contain a few human typos. Keep the accepted typo
-	// set deliberately narrow so unrelated labels are not silently classified.
 	hasDzikir := strings.Contains(normalized, "dzikir") || strings.Contains(normalized, "zikir") || strings.Contains(normalized, "dzizkir")
 	hasPetang := strings.Contains(normalized, "petang") || strings.Contains(normalized, "pertang") || strings.Contains(normalized, "sore") || strings.Contains(normalized, "malam")
 	switch {
