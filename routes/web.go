@@ -33,6 +33,7 @@ func setupStaticRoutes(app *fiber.App) {
 	app.Static("/assets", "./dist/assets", fiber.Static{CacheDuration: 365 * 24 * time.Hour, MaxAge: 31536000, Compress: true})
 	app.Static("/public", "./public", fiber.Static{CacheDuration: 1 * time.Hour, MaxAge: 3600})
 	app.Static("/storage/avatars", "./storage/avatars", fiber.Static{CacheDuration: 24 * time.Hour, MaxAge: 86400})
+	app.Static("/storage/member-photos", "./storage/member-photos", fiber.Static{CacheDuration: 24 * time.Hour, MaxAge: 86400})
 	app.Use("/storage/completed", func(c *fiber.Ctx) error {
 		c.Set("Content-Disposition", "attachment")
 		return c.Next()
@@ -83,6 +84,7 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	management.Get("/members", appHandler.Members)
 	management.Post("/members", appHandler.CreateMember)
 	management.Put("/members/:id", appHandler.UpdateMember)
+	management.Post("/members/:id/photo", appHandler.UploadMemberPhoto)
 	management.Get("/amaliyah", appHandler.AmaliyahLeaderboard)
 	management.Post("/amaliyah/sync", appHandler.SyncAmaliyahWorkspaces)
 	management.Post("/amaliyah/import", appHandler.ImportAmaliyahWorkspaces)
