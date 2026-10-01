@@ -83,6 +83,8 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	management.Get("/members", appHandler.Members)
 	management.Post("/members", appHandler.CreateMember)
 	management.Put("/members/:id", appHandler.UpdateMember)
+	management.Get("/amaliyah", appHandler.AmaliyahLeaderboard)
+	management.Post("/amaliyah/import", appHandler.ImportAmaliyahWorkspaces)
 	management.Get("/attendance", appHandler.AttendanceFoundation)
 	management.Put("/attendance/profiles/:memberID", appHandler.UpdateAttendanceProfile)
 	management.Post("/attendance/invite/:memberID", employeeAttendanceHandler.InviteEmployee)
