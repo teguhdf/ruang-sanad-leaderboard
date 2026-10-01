@@ -7,7 +7,6 @@
 		ChevronRight,
 		ClipboardCheck,
 		FileSpreadsheet,
-		LayoutDashboard,
 		LogOut,
 		Menu,
 		Settings,
@@ -28,7 +27,6 @@
 	let mobileOpen = $state(false);
 
 	const managementLinks = [
-		{ href: "/app", label: "Dashboard", group: "dashboard", icon: LayoutDashboard },
 		{ href: "/app/amaliyah", label: "Leaderboard Amaliyah", group: "amaliyah", icon: Trophy },
 		{ href: "/app/members", label: "Anggota Tim", group: "members", icon: UsersRound },
 		{ href: "/app/attendance", label: "Attendance", group: "attendance", icon: CalendarClock },
@@ -47,7 +45,7 @@
 	}
 
 	function homeHref() {
-		return user?.role === "employee" ? "/app/my-attendance" : "/app";
+		return user?.role === "employee" ? "/app/my-attendance" : "/app/amaliyah";
 	}
 
 	function pageTitle() {
