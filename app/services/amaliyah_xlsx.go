@@ -103,13 +103,14 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 
 	relID := ""
 	for _, sheet := range workbook.Sheets {
-		if strings.EqualFold(strings.TrimSpace(sheet.Name), "New Amaliyah Harian") {
+		name := normalizeAmaliyahText(sheet.Name)
+		if name == "new amaliyah harian" || strings.Contains(name, "amaliyah harian") {
 			relID = sheet.RelID
 			break
 		}
 	}
 	if relID == "" {
-		return nil, &AmaliyahValidationError{Message: "Sheet 'New Amaliyah Harian' tidak ditemukan."}
+		return nil, &AmaliyahValidationError{Message: "Sheet amaliyah harian tidak ditemukan. Pastikan workspace memakai template tim terbaru."}
 	}
 
 	relsRaw, err := readAmaliyahZipEntry(archive, "xl/_rels/workbook.xml.rels")
