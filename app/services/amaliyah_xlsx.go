@@ -289,21 +289,19 @@ func locateAmaliyahMonthBlock(cells map[string]amaliyahWorksheetCell, decode fun
 	bestColumns := []int(nil)
 	bestRow := 0
 
+	// Merged month headers often anchor far to the left of day 1. Once a month
+	// label is found, search the nearby rows for a real 1..N date sequence across
+	// the entire row instead of assuming day 1 is within a few columns of the
+	// header anchor.
 	for ref, cell := range cells {
-		row := rowIndexFromCellRef(ref)
-		if row <= 0 || row > 200 || !matchesAmaliyahMonthHeader(decode(cell), period) {
+		headerRow := rowIndexFromCellRef(ref)
+		if headerRow <= 0 || headerRow > 200 || !matchesAmaliyahMonthHeader(decode(cell), period) {
 			continue
 		}
-		baseColumn := columnIndexFromCellRef(ref)
-		for startOffset := 0; startOffset <= 3; startOffset++ {
-			startColumn := baseColumn + startOffset
-			for candidateRow := row; candidateRow <= row+6; candidateRow++ {
-				candidate := readAmaliyahDaySequence(cells, decode, startColumn, candidateRow, maxDays)
-				if len(candidate) > len(bestColumns) {
-					bestColumns = candidate
-					bestRow = candidateRow
-				}
-			}
+		candidateColumns, candidateRow := findBestAmaliyahDaySequenceInRows(cells, decode, headerRow, headerRow+6, maxDays)
+		if len(candidateColumns) > len(bestColumns) {
+			bestColumns = candidateColumns
+			bestRow = candidateRow
 		}
 	}
 	if len(bestColumns) > 0 {
@@ -351,6 +349,28 @@ func locateAmaliyahMonthBlock(cells map[string]amaliyahWorksheetCell, decode fun
 		return exact[0].columns, exact[0].row
 	}
 	return nil, 0
+}
+
+func findBestAmaliyahDaySequenceInRows(cells map[string]amaliyahWorksheetCell, decode func(amaliyahWorksheetCell) string, startRow, endRow, maxDays int) ([]int, int) {
+	bestColumns := []int(nil)
+	bestRow := 0
+	for ref, cell := range cells {
+		row := rowIndexFromCellRef(ref)
+		if row < startRow || row > endRow {
+			continue
+		}
+		value, err := strconv.ParseFloat(strings.TrimSpace(decode(cell)), 64)
+		if err != nil || int(value) != 1 {
+			continue
+		}
+		startColumn := columnIndexFromCellRef(ref)
+		candidate := readAmaliyahDaySequence(cells, decode, startColumn, row, maxDays)
+		if len(candidate) >= 7 && len(candidate) > len(bestColumns) {
+			bestColumns = candidate
+			bestRow = row
+		}
+	}
+	return bestColumns, bestRow
 }
 
 func readAmaliyahDaySequence(cells map[string]amaliyahWorksheetCell, decode func(amaliyahWorksheetCell) string, startColumn, row, maxDays int) []int {
