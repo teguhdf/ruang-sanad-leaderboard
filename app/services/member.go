@@ -72,6 +72,19 @@ func (s *MemberService) UpdateMember(ownerUserID, memberID int64, input models.M
 	return nil
 }
 
+func (s *MemberService) UpdateMemberPhoto(ownerUserID, memberID int64, photoURL string) error {
+	if strings.TrimSpace(photoURL) == "" {
+		return &MemberValidationError{Message: "Foto anggota tidak valid."}
+	}
+	if err := s.querier.UpdateMemberPhotoURL(context.Background(), ownerUserID, memberID, photoURL); err != nil {
+		if errors.Is(err, queries.ErrMemberNotFound) {
+			return ErrMemberNotFound
+		}
+		return err
+	}
+	return nil
+}
+
 func normalizeMemberInput(ownerUserID int64, input models.MemberInput) (models.Member, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Division = strings.TrimSpace(input.Division)
