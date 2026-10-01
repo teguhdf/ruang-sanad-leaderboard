@@ -192,9 +192,6 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 		return ""
 	}
 
-	// Workspace templates have evolved over time. Do not pin the month header to
-	// one row: locate the selected month anywhere in the amaliyah sheet, then
-	// discover the date row directly below it.
 	startColumn := 0
 	headerRow := 0
 	fallbackColumn := 0
@@ -225,9 +222,6 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 		return nil, &AmaliyahValidationError{Message: fmt.Sprintf("Kolom bulan %s tidak ditemukan di sheet amaliyah.", monthName)}
 	}
 
-	// Some templates keep a 31st column even for 30-day months. The calendar is
-	// the hard upper bound; within valid dates, only actual checkbox cells count
-	// toward the dynamic denominator.
 	dayColumns := make([]int, 0, maxCalendarDays)
 	dayRow := 0
 	for candidateRow := headerRow + 1; candidateRow <= headerRow+5; candidateRow++ {
@@ -254,10 +248,6 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 		return nil, &AmaliyahValidationError{Message: "Kolom tanggal untuk bulan yang dipilih tidak ditemukan."}
 	}
 
-	// Metric labels are allowed to move across the left-side label columns and
-	// may use common wording variants such as "Dzikir Sore" or "Zikir Petang".
-	// A candidate row is accepted only when it actually contains checkbox cells
-	// inside the selected month, preventing unrelated text from being matched.
 	metricRows := make(map[string]int, 4)
 	for ref, cell := range cells {
 		labelColumn := columnIndexFromCellRef(ref)
@@ -339,13 +329,16 @@ func classifyAmaliyahMetricLabel(value string) string {
 	).Replace(normalized)
 	normalized = normalizeAmaliyahText(normalized)
 
-	hasDzikir := strings.Contains(normalized, "dzikir") || strings.Contains(normalized, "zikir")
+	// Historical workspaces contain a few human typos. Keep the accepted typo
+	// set deliberately narrow so unrelated labels are not silently classified.
+	hasDzikir := strings.Contains(normalized, "dzikir") || strings.Contains(normalized, "zikir") || strings.Contains(normalized, "dzizkir")
+	hasPetang := strings.Contains(normalized, "petang") || strings.Contains(normalized, "pertang") || strings.Contains(normalized, "sore") || strings.Contains(normalized, "malam")
 	switch {
 	case strings.Contains(normalized, "tilawah"):
 		return models.AmaliyahTilawahTadabur
 	case hasDzikir && strings.Contains(normalized, "pagi"):
 		return models.AmaliyahDzikirPagi
-	case hasDzikir && (strings.Contains(normalized, "petang") || strings.Contains(normalized, "sore") || strings.Contains(normalized, "malam")):
+	case hasDzikir && hasPetang:
 		return models.AmaliyahDzikirPetang
 	case strings.Contains(normalized, "tahajud") || strings.Contains(normalized, "tahajjud"):
 		return models.AmaliyahTahajud
