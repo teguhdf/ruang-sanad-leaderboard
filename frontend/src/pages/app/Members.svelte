@@ -1,11 +1,12 @@
 <script lang="ts">
-    import { inertia, useForm } from "@inertiajs/svelte";
+    import { router, useForm } from "@inertiajs/svelte";
     import { fly } from "svelte/transition";
     import AppLayout from "@layouts/AppLayout.svelte";
     import type { Member, User } from "@lib/types";
     import {
         Briefcase,
         CalendarDays,
+        Camera,
         Clock,
         ExternalLink,
         Fingerprint,
@@ -25,6 +26,7 @@
 
     let { user, members = [], success, error }: Props = $props();
     let editingId = $state<number | null>(null);
+    let uploadingPhotoId = $state<number | null>(null);
 
     const workDayOptions = [
         { value: "mon", label: "Sen" },
@@ -90,6 +92,44 @@
     function dayLabel(day: string) {
         return workDayOptions.find((item) => item.value === day)?.label ?? day;
     }
+
+    function initials(name: string) {
+        return name
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase() ?? "")
+            .join("") || "?";
+    }
+
+    function uploadPhoto(memberId: number, event: Event) {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) return;
+
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+            alert("Format foto harus JPG, PNG, atau WEBP.");
+            input.value = "";
+            return;
+        }
+        if (file.size > 3 * 1024 * 1024) {
+            alert("Ukuran foto maksimal 3 MB.");
+            input.value = "";
+            return;
+        }
+
+        const data = new FormData();
+        data.append("file", file);
+        uploadingPhotoId = memberId;
+        router.post(`/app/members/${memberId}/photo`, data, {
+            forceFormData: true,
+            preserveScroll: true,
+            onFinish: () => {
+                uploadingPhotoId = null;
+                input.value = "";
+            },
+        });
+    }
 </script>
 
 <AppLayout {user} group="members">
@@ -105,7 +145,7 @@
                         Anggota Tim
                     </h1>
                     <p class="mt-2 text-neutral-600 dark:text-neutral-400 max-w-2xl">
-                        Simpan identitas anggota, jadwal kerja tetap, ID fingerprint, dan workspace Google Sheets.
+                        Simpan identitas anggota, foto profil, jadwal kerja tetap, ID fingerprint, dan workspace Google Sheets.
                     </p>
                 </div>
 
@@ -137,7 +177,7 @@
                         {editingId ? "Edit anggota" : "Tambah anggota"}
                     </h2>
                     <p class="text-sm text-neutral-500 mt-1">
-                        Durasi kerja tetap 8 jam. Di tahap ini kita hanya menyimpan jam masuk, bukan membuat jam pulang.
+                        Foto dapat ditambahkan setelah anggota tersimpan. Jika belum ada foto, leaderboard memakai avatar inisial otomatis.
                     </p>
                 </div>
                 {#if editingId}
@@ -240,7 +280,7 @@
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">Daftar anggota</h2>
-                    <p class="text-sm text-neutral-500 mt-1">Belum ada skor performa atau amaliyah pada data asli.</p>
+                    <p class="text-sm text-neutral-500 mt-1">Foto digunakan pada poster leaderboard. Anggota tanpa foto tetap tampil dengan avatar inisial.</p>
                 </div>
             </div>
 
@@ -255,21 +295,43 @@
                     {#each members as member (member.id)}
                         <article class="rounded-2xl border border-neutral-200/80 dark:border-white/[0.06] bg-white dark:bg-neutral-925/60 p-5">
                             <div class="flex items-start justify-between gap-4">
-                                <div class="min-w-0">
-                                    <h3 class="text-lg font-semibold text-neutral-900 dark:text-white truncate">{member.name}</h3>
-                                    <div class="mt-1 inline-flex items-center gap-1.5 text-sm text-neutral-500">
-                                        <Briefcase class="w-4 h-4" />
-                                        {member.division}
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <div class="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-50 text-lg font-black text-emerald-800 ring-2 ring-white shadow-sm dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-neutral-900">
+                                        {#if member.photo_url}
+                                            <img src={member.photo_url} alt={`Foto ${member.name}`} class="h-full w-full object-cover" />
+                                        {:else}
+                                            {initials(member.name)}
+                                        {/if}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h3 class="text-lg font-semibold text-neutral-900 dark:text-white truncate">{member.name}</h3>
+                                        <div class="mt-1 inline-flex items-center gap-1.5 text-sm text-neutral-500">
+                                            <Briefcase class="w-4 h-4" />
+                                            {member.division}
+                                        </div>
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onclick={() => startEdit(member)}
-                                    class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:border-brand-400/50 hover:text-brand-600 dark:hover:text-brand-400"
-                                >
-                                    <Pencil class="w-4 h-4" />
-                                    Edit
-                                </button>
+                                <div class="flex shrink-0 gap-2">
+                                    <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:border-emerald-400/50 hover:text-emerald-700 dark:hover:text-emerald-300">
+                                        <Camera class="w-4 h-4" />
+                                        {uploadingPhotoId === member.id ? "Upload..." : "Foto"}
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            class="hidden"
+                                            disabled={uploadingPhotoId !== null}
+                                            onchange={(event) => uploadPhoto(member.id, event)}
+                                        />
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onclick={() => startEdit(member)}
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:border-brand-400/50 hover:text-brand-600 dark:hover:text-brand-400"
+                                    >
+                                        <Pencil class="w-4 h-4" />
+                                        Edit
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="mt-5 grid gap-3 sm:grid-cols-2 text-sm">
