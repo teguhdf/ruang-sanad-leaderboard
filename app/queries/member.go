@@ -13,7 +13,7 @@ var ErrMemberNotFound = errors.New("member not found")
 func (q *Querier) ListMembersByOwner(ctx context.Context, ownerUserID int64) ([]models.Member, error) {
 	rows, err := q.db.QueryContext(ctx, `
 		SELECT id, owner_user_id, name, division, work_days, start_time,
-		       fingerprint_id, google_sheet_url, created_at, updated_at
+		       fingerprint_id, google_sheet_url, photo_url, created_at, updated_at
 		FROM members
 		WHERE owner_user_id = ?
 		ORDER BY name ASC
@@ -36,6 +36,7 @@ func (q *Querier) ListMembersByOwner(ctx context.Context, ownerUserID int64) ([]
 			&member.StartTime,
 			&member.FingerprintID,
 			&member.GoogleSheetURL,
+			&member.PhotoURL,
 			&member.CreatedAt,
 			&member.UpdatedAt,
 		); err != nil {
@@ -116,5 +117,25 @@ func (q *Querier) UpdateMemberRecord(ctx context.Context, ownerUserID, memberID 
 		return ErrMemberNotFound
 	}
 
+	return nil
+}
+
+func (q *Querier) UpdateMemberPhotoURL(ctx context.Context, ownerUserID, memberID int64, photoURL string) error {
+	result, err := q.db.ExecContext(ctx, `
+		UPDATE members
+		SET photo_url = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND owner_user_id = ?
+	`, photoURL, memberID, ownerUserID)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrMemberNotFound
+	}
 	return nil
 }
