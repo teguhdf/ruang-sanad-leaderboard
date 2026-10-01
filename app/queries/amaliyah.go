@@ -100,6 +100,7 @@ func (q *Querier) ListAmaliyahMemberSnapshots(ctx context.Context, ownerUserID i
 			s.member_id,
 			m.name,
 			m.division,
+			m.photo_url,
 			s.period_month,
 			s.source_file_name,
 			s.overall_score,
@@ -128,6 +129,7 @@ func (q *Querier) ListAmaliyahMemberSnapshots(ctx context.Context, ownerUserID i
 			memberID       int64
 			memberName     string
 			division       string
+			photoURL       string
 			period         string
 			sourceFileName string
 			overallScore   float64
@@ -143,6 +145,7 @@ func (q *Querier) ListAmaliyahMemberSnapshots(ctx context.Context, ownerUserID i
 			&memberID,
 			&memberName,
 			&division,
+			&photoURL,
 			&period,
 			&sourceFileName,
 			&overallScore,
@@ -164,6 +167,7 @@ func (q *Querier) ListAmaliyahMemberSnapshots(ctx context.Context, ownerUserID i
 				MemberID:       memberID,
 				MemberName:     memberName,
 				Division:       division,
+				PhotoURL:       photoURL,
 				PeriodMonth:    period,
 				SourceFileName: sourceFileName,
 				OverallScore:   overallScore,
