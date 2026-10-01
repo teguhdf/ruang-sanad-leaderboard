@@ -254,25 +254,40 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 		return nil, &AmaliyahValidationError{Message: "Kolom tanggal untuk bulan yang dipilih tidak ditemukan."}
 	}
 
+	// Metric labels are allowed to move across the left-side label columns and
+	// may use common wording variants such as "Dzikir Sore" or "Zikir Petang".
+	// A candidate row is accepted only when it actually contains checkbox cells
+	// inside the selected month, preventing unrelated text from being matched.
 	metricRows := make(map[string]int, 4)
 	for ref, cell := range cells {
-		if columnIndexFromCellRef(ref) != 2 {
+		labelColumn := columnIndexFromCellRef(ref)
+		if labelColumn < 1 || labelColumn > 4 {
 			continue
 		}
 		row := rowIndexFromCellRef(ref)
 		if row <= dayRow || row > dayRow+50 {
 			continue
 		}
-		label := normalizeAmaliyahText(decode(cell))
-		switch {
-		case strings.Contains(label, "tilawah"):
-			metricRows[models.AmaliyahTilawahTadabur] = row
-		case label == "dzikir pagi":
-			metricRows[models.AmaliyahDzikirPagi] = row
-		case label == "dzikir petang":
-			metricRows[models.AmaliyahDzikirPetang] = row
-		case strings.Contains(label, "tahajud") || strings.Contains(label, "tahajjud"):
-			metricRows[models.AmaliyahTahajud] = row
+
+		key := classifyAmaliyahMetricLabel(decode(cell))
+		if key == "" {
+			continue
+		}
+
+		hasCheckbox := false
+		for _, dayColumn := range dayColumns {
+			dayCell, ok := cells[fmt.Sprintf("%s%d", columnLetters(dayColumn), row)]
+			if ok && dayCell.Type == "b" {
+				hasCheckbox = true
+				break
+			}
+		}
+		if !hasCheckbox {
+			continue
+		}
+
+		if current := metricRows[key]; current == 0 || row < current {
+			metricRows[key] = row
 		}
 	}
 
@@ -308,6 +323,35 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 		return nil, &AmaliyahValidationError{Message: "Tidak ada checkbox aktif pada empat amaliyah untuk bulan yang dipilih."}
 	}
 	return metrics, nil
+}
+
+func classifyAmaliyahMetricLabel(value string) string {
+	normalized := normalizeAmaliyahText(value)
+	normalized = strings.NewReplacer(
+		"/", " ",
+		"-", " ",
+		"_", " ",
+		"+", " ",
+		"&", " ",
+		"(", " ",
+		")", " ",
+		":", " ",
+	).Replace(normalized)
+	normalized = normalizeAmaliyahText(normalized)
+
+	hasDzikir := strings.Contains(normalized, "dzikir") || strings.Contains(normalized, "zikir")
+	switch {
+	case strings.Contains(normalized, "tilawah"):
+		return models.AmaliyahTilawahTadabur
+	case hasDzikir && strings.Contains(normalized, "pagi"):
+		return models.AmaliyahDzikirPagi
+	case hasDzikir && (strings.Contains(normalized, "petang") || strings.Contains(normalized, "sore") || strings.Contains(normalized, "malam")):
+		return models.AmaliyahDzikirPetang
+	case strings.Contains(normalized, "tahajud") || strings.Contains(normalized, "tahajjud"):
+		return models.AmaliyahTahajud
+	default:
+		return ""
+	}
 }
 
 func readAmaliyahZipEntry(archive *zip.Reader, name string) ([]byte, error) {
