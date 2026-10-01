@@ -47,6 +47,66 @@ func (h *AppHandler) AmaliyahLeaderboard(c *fiber.Ctx) error {
 	})
 }
 
+func (h *AppHandler) SyncAmaliyahWorkspaces(c *fiber.Ctx) error {
+	ownerUserID, ok := authenticatedUserID(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authenticated"})
+	}
+
+	var input struct {
+		PeriodMonth string `json:"period_month" form:"period_month"`
+	}
+	if err := c.BodyParser(&input); err != nil || !isValidPeriodMonth(strings.TrimSpace(input.PeriodMonth)) {
+		h.store.Flash(c, "error", "Pilih bulan leaderboard yang valid.")
+		return h.inertiaService.Redirect(c, "/app/amaliyah")
+	}
+	periodMonth := strings.TrimSpace(input.PeriodMonth)
+	redirectURL := "/app/amaliyah?month=" + periodMonth
+
+	report, err := h.memberService.SyncAmaliyahFromGoogleSheets(c.UserContext(), ownerUserID, periodMonth)
+	if err != nil {
+		if errors.Is(err, services.ErrAmaliyahInvalidPeriod) {
+			h.store.Flash(c, "error", "Periode leaderboard tidak valid.")
+		} else {
+			h.store.Flash(c, "error", "Sinkronisasi Google Sheets gagal dijalankan.")
+		}
+		return h.inertiaService.Redirect(c, redirectURL)
+	}
+
+	if report.Synced > 0 {
+		h.store.Flash(c, "success", fmt.Sprintf("%d dari %d workspace berhasil disinkronkan untuk %s.", report.Synced, report.Total, periodMonth))
+	}
+	if len(report.Failures) > 0 {
+		h.store.Flash(c, "error", formatAmaliyahSyncFailures(report.Failures))
+	}
+	if report.Total == 0 {
+		h.store.Flash(c, "error", "Belum ada anggota tim untuk disinkronkan.")
+	}
+
+	return h.inertiaService.Redirect(c, redirectURL)
+}
+
+func formatAmaliyahSyncFailures(failures []services.AmaliyahSyncFailure) string {
+	if len(failures) == 0 {
+		return ""
+	}
+	limit := len(failures)
+	if limit > 5 {
+		limit = 5
+	}
+	parts := make([]string, 0, limit)
+	for _, failure := range failures[:limit] {
+		parts = append(parts, fmt.Sprintf("%s: %s", failure.MemberName, failure.Message))
+	}
+	message := fmt.Sprintf("%d workspace gagal. %s", len(failures), strings.Join(parts, " | "))
+	if len(failures) > limit {
+		message += fmt.Sprintf(" | +%d lainnya", len(failures)-limit)
+	}
+	return message
+}
+
+// ImportAmaliyahWorkspaces remains as a manual fallback when a Google Sheet
+// cannot be exported. Normal operation should use SyncAmaliyahWorkspaces.
 func (h *AppHandler) ImportAmaliyahWorkspaces(c *fiber.Ctx) error {
 	ownerUserID, ok := authenticatedUserID(c)
 	if !ok {
