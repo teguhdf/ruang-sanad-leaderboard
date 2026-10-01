@@ -22,6 +22,7 @@ type AmaliyahMemberSnapshot struct {
 	MemberID       int64                 `json:"member_id"`
 	MemberName     string                `json:"member_name"`
 	Division       string                `json:"division"`
+	PhotoURL       string                `json:"photo_url"`
 	PeriodMonth    string                `json:"period_month"`
 	SourceFileName string                `json:"source_file_name"`
 	OverallScore   float64               `json:"overall_score"`
