@@ -115,8 +115,14 @@ func parseAmaliyahWorkbook(data []byte, periodMonth string) ([]models.AmaliyahMe
 			break
 		}
 	}
+	// Google Sheets export with a gid commonly returns a workbook containing
+	// only the selected tab. In that case the tab name is not authoritative and
+	// may have been renamed by the member, so safely use the sole exported sheet.
+	if relID == "" && len(workbook.Sheets) == 1 {
+		relID = workbook.Sheets[0].RelID
+	}
 	if relID == "" {
-		return nil, &AmaliyahValidationError{Message: "Sheet amaliyah harian tidak ditemukan. Pastikan workspace memakai template tim terbaru."}
+		return nil, &AmaliyahValidationError{Message: "Sheet amaliyah harian tidak ditemukan. Pastikan link workspace mengarah ke tab tracker amaliyah."}
 	}
 
 	relsRaw, err := readAmaliyahZipEntry(archive, "xl/_rels/workbook.xml.rels")
