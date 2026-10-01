@@ -1,0 +1,242 @@
+/* Ruang Sanad Ops - Nabawi dome inspired theme override */
+:root {
+    --color-brand-50: #f1fbf6;
+    --color-brand-100: #daf4e7;
+    --color-brand-200: #b7e7d1;
+    --color-brand-300: #86d2af;
+    --color-brand-400: #4fbb89;
+    --color-brand-500: #229967;
+    --color-brand-600: #0c7a54;
+    --color-brand-700: #086344;
+    --color-brand-800: #075039;
+    --color-brand-900: #063f2f;
+    --color-brand-950: #03291f;
+
+    --color-secondary-50: #fffbf2;
+    --color-secondary-100: #fdf2d7;
+    --color-secondary-200: #f8e1a8;
+    --color-secondary-300: #efca72;
+    --color-secondary-400: #dca94a;
+    --color-secondary-500: #c38a31;
+    --color-secondary-600: #9f6923;
+    --color-secondary-700: #7d501f;
+    --color-secondary-800: #653f1f;
+    --color-secondary-900: #54351d;
+    --color-secondary-950: #301b0d;
+
+    --color-neutral-50: #f7faf8;
+    --color-neutral-100: #f0f5f2;
+    --color-neutral-200: #e0e9e4;
+    --color-neutral-300: #c8d6ce;
+    --color-neutral-400: #98aaa0;
+    --color-neutral-500: #6f8077;
+    --color-neutral-600: #56655d;
+    --color-neutral-700: #3f4d45;
+    --color-neutral-800: #2b3731;
+    --color-neutral-850: #232e29;
+    --color-neutral-900: #18231e;
+    --color-neutral-925: #141d19;
+    --color-neutral-950: #0d1511;
+
+    --color-accent-1: #0c7a54;
+    --color-accent-2: #c38a31;
+    --color-accent-3: #229967;
+    --color-accent-4: #557b66;
+    --color-accent-5: #a46d25;
+    --color-accent-6: #2d8063;
+    --color-accent-7: #6d8b78;
+    --color-accent-8: #b68a45;
+
+    --shadow-soft: 0 1px 2px rgba(3, 41, 31, 0.06), 0 10px 28px rgba(3, 41, 31, 0.07);
+    --shadow-glow-brand: 0 10px 35px rgba(12, 122, 84, 0.16);
+    --shadow-glow-brand-lg: 0 18px 55px rgba(12, 122, 84, 0.20);
+}
+
+html,
+body {
+    background: #f7faf8;
+    color: #18231e;
+}
+
+html.dark,
+.dark body {
+    background: #0d1511;
+    color: #eef7f2;
+}
+
+*:focus-visible {
+    outline-color: rgba(12, 122, 84, 0.34) !important;
+}
+
+.bg-gradient-brand {
+    background-image: linear-gradient(135deg, #0c7a54 0%, #075039 72%, #9f6923 140%) !important;
+}
+
+.bg-gradient-hero {
+    background-image:
+        radial-gradient(ellipse 70% 55% at 18% 0%, rgba(34, 153, 103, 0.14), transparent 62%),
+        radial-gradient(ellipse 55% 45% at 92% 100%, rgba(195, 138, 49, 0.09), transparent 65%) !important;
+}
+
+.text-gradient-brand {
+    background-image: linear-gradient(135deg, #0c7a54, #075039 72%, #9f6923) !important;
+}
+
+/* Shared material primitives */
+.md-hero {
+    border-color: #dce9e2 !important;
+    background: linear-gradient(135deg, #f1fbf6 0%, #fffaf0 100%) !important;
+}
+
+.dark .md-hero {
+    border-color: rgba(183, 231, 209, 0.12) !important;
+    background: linear-gradient(135deg, #10261d 0%, #1d241d 100%) !important;
+}
+
+.md-hero p,
+.md-section-head p,
+.md-stat-card > span,
+.md-stat-card small,
+.md-shift-title span,
+.md-shift-card > p,
+.md-segment-row span,
+.md-profile-info span,
+.md-profile-row label > span,
+.md-target > span,
+.md-empty {
+    color: #6f8077 !important;
+}
+
+.md-eyebrow,
+.md-hero-badge,
+.md-icon-box,
+.md-segment-icon,
+.md-count {
+    color: #0c7a54 !important;
+}
+
+.dark .md-eyebrow,
+.dark .md-hero-badge,
+.dark .md-icon-box,
+.dark .md-segment-icon,
+.dark .md-count {
+    color: #86d2af !important;
+}
+
+.md-hero-badge {
+    border-color: rgba(12, 122, 84, 0.16) !important;
+}
+
+.dark .md-hero-badge {
+    border-color: rgba(134, 210, 175, 0.18) !important;
+}
+
+.md-stat-card,
+.md-card {
+    border-color: #e0e9e4 !important;
+    box-shadow: 0 1px 2px rgba(3, 41, 31, 0.04) !important;
+}
+
+.dark .md-stat-card,
+.dark .md-card {
+    border-color: rgba(255, 255, 255, 0.07) !important;
+    background: #141d19 !important;
+}
+
+.md-stat-primary,
+.md-chip-accent,
+.md-count {
+    border-color: #b7e7d1 !important;
+    background: #daf4e7 !important;
+    color: #086344 !important;
+}
+
+.dark .md-stat-primary,
+.dark .md-chip-accent,
+.dark .md-count {
+    border-color: #086344 !important;
+    background: #123728 !important;
+    color: #a9dfc8 !important;
+}
+
+.md-icon-box,
+.md-segment-icon {
+    background: #e6f7ee !important;
+}
+
+.dark .md-icon-box,
+.dark .md-segment-icon {
+    background: #123728 !important;
+}
+
+.md-chip,
+.md-shift-card,
+.md-profile-row {
+    border-color: #dce9e2 !important;
+    background: #f7faf8 !important;
+    color: #3f4d45 !important;
+}
+
+.dark .md-chip,
+.dark .md-shift-card,
+.dark .md-profile-row {
+    border-color: rgba(255, 255, 255, 0.07) !important;
+    background: #18231e !important;
+    color: #dce9e2 !important;
+}
+
+.md-note {
+    background: #edf7f1 !important;
+    color: #557066 !important;
+}
+
+.dark .md-note {
+    background: #18251f !important;
+    color: #b9ccc1 !important;
+}
+
+.md-segment-row {
+    background: #ffffff !important;
+}
+
+.dark .md-segment-row {
+    background: #141d19 !important;
+}
+
+.md-avatar {
+    background: #0c7a54 !important;
+}
+
+.md-profile-row select {
+    border-color: #c8d6ce !important;
+    color: #18231e !important;
+}
+
+.dark .md-profile-row select {
+    border-color: #3f4d45 !important;
+    background: #141d19 !important;
+    color: #eef7f2 !important;
+}
+
+.md-button-tonal {
+    background: #daf4e7 !important;
+    color: #063f2f !important;
+}
+
+.dark .md-button-tonal {
+    background: #164b36 !important;
+    color: #dff5e9 !important;
+}
+
+/* Keep success states aligned with the product palette */
+.md-status,
+.md-alert-success {
+    background: #e3f6ec !important;
+    color: #0c7a54 !important;
+}
+
+.dark .md-status,
+.dark .md-alert-success {
+    background: #123728 !important;
+    color: #9fddc2 !important;
+}
