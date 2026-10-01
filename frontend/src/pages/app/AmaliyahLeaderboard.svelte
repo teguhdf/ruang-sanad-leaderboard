@@ -31,6 +31,7 @@
 		member_id: number;
 		member_name: string;
 		division: string;
+		photo_url: string;
 		period_month: string;
 		source_file_name: string;
 		overall_score: number;
@@ -182,57 +183,268 @@
 		return member.metrics.find((metric) => metric.key === key)?.available ?? 0;
 	}
 
-	function escapeXml(value: string) {
-		return value.replace(/[<>&"']/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[char] ?? char);
-	}
-
-	function compactDivision(value: string) {
-		return value.length > 30 ? `${value.slice(0, 28)}…` : value;
-	}
-
-	function posterSpec() {
-		const width = 1080;
-		const rowHeight = 172;
-		const height = 300 + Math.max(1, leaderboard.teams.length) * rowHeight + 90;
-		const metricPositions = [360, 525, 690, 855];
-		const metricNames = ["Tahajud", "Tilawah + Tadabur", "Dzikir Pagi", "Dzikir Petang"];
-		const rows = leaderboard.teams
-			.map((team, index) => {
-				const y = 250 + index * rowHeight;
-				const metrics = metricKeys.map((key) => team.metrics.find((metric) => metric.key === key)?.score ?? 0);
-				const metricSvg = metrics
-					.map((score, metricIndex) => `<text x="${metricPositions[metricIndex]}" y="${y + 72}" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#111827">${formatPercent(score)}%</text><text x="${metricPositions[metricIndex]}" y="${y + 103}" font-family="Arial, sans-serif" font-size="15" fill="#6b7280">${escapeXml(metricNames[metricIndex])}</text>`)
-					.join("");
-				return `<rect x="55" y="${y}" width="970" height="142" rx="28" fill="${team.rank === 1 ? "#fff7d6" : "#ffffff"}"/><circle cx="112" cy="${y + 71}" r="35" fill="${team.rank === 1 ? "#f59e0b" : "#ede9fe"}"/><text x="112" y="${y + 81}" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" font-weight="800" fill="${team.rank === 1 ? "#ffffff" : "#6d28d9"}">${team.rank}</text><text x="170" y="${y + 58}" font-family="Arial, sans-serif" font-size="27" font-weight="800" fill="#111827">${escapeXml(compactDivision(team.division))}</text><text x="170" y="${y + 91}" font-family="Arial, sans-serif" font-size="17" fill="#6b7280">${team.member_count} anggota</text><text x="935" y="${y + 58}" text-anchor="end" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="#6d28d9">${formatPercent(team.overall_score)}%</text><text x="935" y="${y + 88}" text-anchor="end" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#9ca3af">OVERALL</text>${metricSvg}`;
+	function rankedIndividuals() {
+		return [...leaderboard.members]
+			.sort((a, b) => {
+				if (b.overall_score === a.overall_score) {
+					return a.member_name.localeCompare(b.member_name, "id");
+				}
+				return b.overall_score - a.overall_score;
 			})
-			.join("");
+			.slice(0, 10);
+	}
 
-		const empty = leaderboard.teams.length === 0 ? `<text x="540" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#6b7280">Belum ada data leaderboard</text>` : "";
-		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4c1d95"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="${width}" height="${height}" fill="#f5f3ff"/><rect x="0" y="0" width="${width}" height="205" fill="url(#bg)"/><text x="58" y="68" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#ddd6fe">RUANG SANAD · AMALIYAH TIM</text><text x="58" y="120" font-family="Arial, sans-serif" font-size="43" font-weight="900" fill="#ffffff">Leaderboard ${escapeXml(formatPeriod(period_month))}</text><text x="58" y="160" font-family="Arial, sans-serif" font-size="19" fill="#ede9fe">Tahajud · Tilawah + Tadabur · Dzikir Pagi · Dzikir Petang</text>${rows}${empty}<text x="540" y="${height - 42}" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#9ca3af">Score tim = rata-rata persentase anggota · Denominator checkbox dinamis</text></svg>`;
-		return { svg, width, height };
+	function initials(name: string) {
+		return name
+			.trim()
+			.split(/\s+/)
+			.slice(0, 2)
+			.map((part) => part[0]?.toUpperCase() ?? "")
+			.join("") || "?";
+	}
+
+	function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+		const r = Math.min(radius, width / 2, height / 2);
+		ctx.beginPath();
+		ctx.moveTo(x + r, y);
+		ctx.lineTo(x + width - r, y);
+		ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+		ctx.lineTo(x + width, y + height - r);
+		ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+		ctx.lineTo(x + r, y + height);
+		ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+		ctx.lineTo(x, y + r);
+		ctx.quadraticCurveTo(x, y, x + r, y);
+		ctx.closePath();
+	}
+
+	function fillRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number, fill: string) {
+		ctx.save();
+		ctx.fillStyle = fill;
+		roundedRectPath(ctx, x, y, width, height, radius);
+		ctx.fill();
+		ctx.restore();
+	}
+
+	function fitText(ctx: CanvasRenderingContext2D, value: string, maxWidth: number) {
+		if (ctx.measureText(value).width <= maxWidth) return value;
+		let trimmed = value;
+		while (trimmed.length > 1 && ctx.measureText(`${trimmed}…`).width > maxWidth) {
+			trimmed = trimmed.slice(0, -1);
+		}
+		return `${trimmed}…`;
+	}
+
+	function loadImage(src: string) {
+		return new Promise<HTMLImageElement | null>((resolve) => {
+			if (!src) {
+				resolve(null);
+				return;
+			}
+			const image = new Image();
+			image.onload = () => resolve(image);
+			image.onerror = () => resolve(null);
+			image.src = src;
+		});
+	}
+
+	function drawCoverImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, size: number) {
+		const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+		const sourceWidth = size / scale;
+		const sourceHeight = size / scale;
+		const sourceX = (image.naturalWidth - sourceWidth) / 2;
+		const sourceY = (image.naturalHeight - sourceHeight) / 2;
+		ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, size, size);
+	}
+
+	function drawAvatar(
+		ctx: CanvasRenderingContext2D,
+		member: AmaliyahMemberSnapshot,
+		image: HTMLImageElement | null,
+		cx: number,
+		cy: number,
+		radius: number,
+	) {
+		ctx.save();
+		ctx.beginPath();
+		ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+		ctx.clip();
+		if (image) {
+			drawCoverImage(ctx, image, cx - radius, cy - radius, radius * 2);
+		} else {
+			ctx.fillStyle = "#DDECE6";
+			ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+			ctx.fillStyle = "#155B49";
+			ctx.font = `800 ${Math.round(radius * 0.58)}px Arial, sans-serif`;
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillText(initials(member.member_name), cx, cy + 2);
+		}
+		ctx.restore();
+
+		ctx.save();
+		ctx.strokeStyle = "#FFFFFF";
+		ctx.lineWidth = 7;
+		ctx.beginPath();
+		ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.strokeStyle = "#D4B46A";
+		ctx.lineWidth = 3;
+		ctx.beginPath();
+		ctx.arc(cx, cy, radius + 7, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.restore();
+	}
+
+	function drawRankBadge(ctx: CanvasRenderingContext2D, rank: number, x: number, y: number, size: number) {
+		const fill = rank === 1 ? "#C99A3D" : rank === 2 ? "#8D99A5" : rank === 3 ? "#B7774A" : "#176B55";
+		ctx.save();
+		ctx.fillStyle = fill;
+		ctx.beginPath();
+		ctx.arc(x, y, size, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.strokeStyle = "#FFFFFF";
+		ctx.lineWidth = 4;
+		ctx.stroke();
+		ctx.fillStyle = "#FFFFFF";
+		ctx.font = `900 ${Math.round(size * 0.95)}px Arial, sans-serif`;
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.fillText(String(rank), x, y + 1);
+		ctx.restore();
+	}
+
+	function drawMemberLabel(
+		ctx: CanvasRenderingContext2D,
+		member: AmaliyahMemberSnapshot,
+		x: number,
+		y: number,
+		maxWidth: number,
+		featured: boolean,
+	) {
+		ctx.save();
+		ctx.fillStyle = "#19352D";
+		ctx.font = `${featured ? 900 : 800} ${featured ? 30 : 22}px Arial, sans-serif`;
+		ctx.textAlign = "center";
+		ctx.textBaseline = "alphabetic";
+		ctx.fillText(fitText(ctx, member.member_name, maxWidth), x, y);
+
+		const score = `${formatPercent(member.overall_score)}%`;
+		ctx.font = `800 ${featured ? 18 : 15}px Arial, sans-serif`;
+		const scoreWidth = ctx.measureText(score).width + 30;
+		fillRoundedRect(ctx, x - scoreWidth / 2, y + 13, scoreWidth, featured ? 34 : 30, 17, featured ? "#F3E3B7" : "#E8F1ED");
+		ctx.fillStyle = featured ? "#8C651C" : "#155B49";
+		ctx.textBaseline = "middle";
+		ctx.fillText(score, x, y + (featured ? 30 : 28));
+		ctx.restore();
 	}
 
 	async function renderPosterCanvas() {
-		const { svg, width, height } = posterSpec();
-		const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-		const url = URL.createObjectURL(blob);
-		try {
-			const image = new Image();
-			await new Promise<void>((resolve, reject) => {
-				image.onload = () => resolve();
-				image.onerror = () => reject(new Error("Poster tidak dapat dirender"));
-				image.src = url;
-			});
-			const canvas = document.createElement("canvas");
-			canvas.width = width;
-			canvas.height = height;
-			const context = canvas.getContext("2d");
-			if (!context) throw new Error("Canvas tidak tersedia");
-			context.drawImage(image, 0, 0, width, height);
-			return canvas;
-		} finally {
-			URL.revokeObjectURL(url);
+		const ranked = rankedIndividuals();
+		if (!ranked.length) throw new Error("Belum ada data individu untuk poster");
+
+		const width = 1080;
+		const height = 1350;
+		const canvas = document.createElement("canvas");
+		canvas.width = width;
+		canvas.height = height;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) throw new Error("Canvas tidak tersedia");
+
+		const images = await Promise.all(ranked.map((member) => loadImage(member.photo_url)));
+
+		ctx.fillStyle = "#F7F5EF";
+		ctx.fillRect(0, 0, width, height);
+
+		ctx.fillStyle = "#155B49";
+		ctx.fillRect(0, 0, width, 225);
+		ctx.strokeStyle = "rgba(255,255,255,0.09)";
+		ctx.lineWidth = 2;
+		ctx.beginPath();
+		ctx.arc(930, -40, 215, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.arc(100, 230, 165, 0, Math.PI * 2);
+		ctx.stroke();
+
+		ctx.fillStyle = "#D4B46A";
+		fillRoundedRect(ctx, 70, 48, 132, 32, 16, "#D4B46A");
+		ctx.fillStyle = "#17362E";
+		ctx.font = "900 15px Arial, sans-serif";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.fillText("RUANG SANAD", 136, 64);
+
+		ctx.fillStyle = "#FFFFFF";
+		ctx.font = "900 48px Arial, sans-serif";
+		ctx.textAlign = "left";
+		ctx.textBaseline = "alphabetic";
+		ctx.fillText("Leaderboard Amaliyah", 70, 135);
+		ctx.fillStyle = "#DCECE6";
+		ctx.font = "700 23px Arial, sans-serif";
+		ctx.fillText(formatPeriod(period_month), 70, 176);
+		ctx.fillStyle = "rgba(255,255,255,0.72)";
+		ctx.font = "500 16px Arial, sans-serif";
+		ctx.fillText("Top individu seluruh tim · maksimal 10 anggota", 70, 205);
+
+		ctx.fillStyle = "#D4B46A";
+		ctx.fillRect(70, 242, 940, 3);
+
+		const top = ranked.slice(0, 3);
+		const topPositions = [
+			{ x: 540, y: 410, radius: 112, labelY: 565, featured: true },
+			{ x: 260, y: 440, radius: 86, labelY: 560, featured: false },
+			{ x: 820, y: 440, radius: 86, labelY: 560, featured: false },
+		];
+		for (let i = 0; i < top.length; i++) {
+			const member = top[i];
+			const pos = topPositions[i];
+			drawAvatar(ctx, member, images[i], pos.x, pos.y, pos.radius);
+			drawRankBadge(ctx, i + 1, pos.x - pos.radius * 0.82, pos.y - pos.radius * 0.78, pos.featured ? 35 : 29);
+			drawMemberLabel(ctx, member, pos.x, pos.labelY, pos.featured ? 280 : 220, pos.featured);
 		}
+
+		const lower = ranked.slice(3, 10);
+		if (lower.length) {
+			fillRoundedRect(ctx, 55, 655, 970, 575, 38, "#FFFFFF");
+			ctx.fillStyle = "#6B7E77";
+			ctx.font = "800 15px Arial, sans-serif";
+			ctx.textAlign = "left";
+			ctx.textBaseline = "alphabetic";
+			ctx.fillText("PERINGKAT BERIKUTNYA", 90, 705);
+
+			const rowOne = lower.slice(0, 4);
+			const rowTwo = lower.slice(4, 7);
+			const drawGridRow = (items: AmaliyahMemberSnapshot[], sourceOffset: number, y: number) => {
+				const gap = 220;
+				const totalWidth = (items.length - 1) * gap;
+				const startX = width / 2 - totalWidth / 2;
+				items.forEach((member, index) => {
+					const x = startX + index * gap;
+					const rank = sourceOffset + index + 4;
+					const imageIndex = rank - 1;
+					drawAvatar(ctx, member, images[imageIndex], x, y, 67);
+					drawRankBadge(ctx, rank, x - 55, y - 53, 24);
+					drawMemberLabel(ctx, member, x, y + 99, 180, false);
+				});
+			};
+
+			drawGridRow(rowOne, 0, 815);
+			if (rowTwo.length) drawGridRow(rowTwo, 4, 1050);
+		}
+
+		ctx.fillStyle = "#155B49";
+		ctx.fillRect(0, 1270, width, 80);
+		ctx.fillStyle = "#FFFFFF";
+		ctx.font = "800 18px Arial, sans-serif";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.fillText("Ruang Sanad Ops", width / 2, 1298);
+		ctx.fillStyle = "rgba(255,255,255,0.7)";
+		ctx.font = "500 14px Arial, sans-serif";
+		ctx.fillText("Overall = rata-rata Tahajud · Tilawah + Tadabur · Dzikir Pagi · Dzikir Petang", width / 2, 1325);
+
+		return canvas;
 	}
 
 	function downloadBlob(blob: Blob, filename: string) {
@@ -247,7 +459,7 @@
 	}
 
 	async function downloadPNG() {
-		if (!leaderboard.teams.length || exporting) return;
+		if (!leaderboard.members.length || exporting) return;
 		exporting = true;
 		try {
 			const canvas = await renderPosterCanvas();
@@ -315,7 +527,7 @@
 	}
 
 	async function downloadPDF() {
-		if (!leaderboard.teams.length || exporting) return;
+		if (!leaderboard.members.length || exporting) return;
 		exporting = true;
 		try {
 			const canvas = await renderPosterCanvas();
@@ -343,7 +555,7 @@
 				</div>
 				<div class="grid min-w-[280px] gap-3 rounded-3xl bg-white/10 p-4 backdrop-blur-sm ring-1 ring-white/15">
 					<div><div class="text-xs font-bold uppercase tracking-[0.12em] text-white/60">Periode aktif</div><div class="mt-1 text-2xl font-black capitalize">{formatPeriod(period_month)}</div><div class="mt-1 text-xs text-white/70">{leaderboard.members.length} snapshot anggota tersimpan</div></div>
-					{#if leaderboard.teams.length > 0}
+					{#if leaderboard.members.length > 0}
 						<div class="grid grid-cols-2 gap-2">
 							<button type="button" onclick={downloadPNG} disabled={exporting} class="flex min-h-10 items-center justify-center gap-2 rounded-full bg-white px-3 text-xs font-black text-brand-800 disabled:opacity-50"><Download size="15" /> PNG</button>
 							<button type="button" onclick={downloadPDF} disabled={exporting} class="flex min-h-10 items-center justify-center gap-2 rounded-full bg-white/15 px-3 text-xs font-black text-white ring-1 ring-white/20 disabled:opacity-50"><FileDown size="15" /> PDF</button>
@@ -382,7 +594,7 @@
 		<section class="rounded-[30px] bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06] sm:p-6">
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 				<div><div class="flex items-center gap-2 text-sm font-black text-brand-700 dark:text-brand-300"><Medal size="18" /> Ranking divisi</div><h2 class="mt-1 text-2xl font-black capitalize">Leaderboard {formatPeriod(period_month)}</h2><p class="mt-1 text-sm text-neutral-500">Overall adalah rata-rata score individu. Persentase empat amaliyah ditampilkan terpisah agar mudah dibandingkan.</p></div>
-				<div class="flex items-center gap-2"><div class="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-black text-neutral-600 dark:bg-white/[0.05] dark:text-neutral-300">{leaderboard.teams.length} tim</div>{#if leaderboard.teams.length > 0}<button type="button" onclick={downloadPNG} disabled={exporting} class="grid h-9 w-9 place-items-center rounded-full bg-brand-100 text-brand-700 hover:bg-brand-200 disabled:opacity-50 dark:bg-brand-950/50 dark:text-brand-300" aria-label="Download PNG"><Download size="16" /></button><button type="button" onclick={downloadPDF} disabled={exporting} class="grid h-9 w-9 place-items-center rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50 dark:bg-white/[0.05] dark:text-neutral-300" aria-label="Download PDF"><FileDown size="16" /></button>{/if}</div>
+				<div class="flex items-center gap-2"><div class="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-black text-neutral-600 dark:bg-white/[0.05] dark:text-neutral-300">{leaderboard.teams.length} tim</div>{#if leaderboard.members.length > 0}<button type="button" onclick={downloadPNG} disabled={exporting} class="grid h-9 w-9 place-items-center rounded-full bg-brand-100 text-brand-700 hover:bg-brand-200 disabled:opacity-50 dark:bg-brand-950/50 dark:text-brand-300" aria-label="Download PNG poster individu"><Download size="16" /></button><button type="button" onclick={downloadPDF} disabled={exporting} class="grid h-9 w-9 place-items-center rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50 dark:bg-white/[0.05] dark:text-neutral-300" aria-label="Download PDF poster individu"><FileDown size="16" /></button>{/if}</div>
 			</div>
 
 			{#if leaderboard.teams.length === 0}
@@ -401,7 +613,7 @@
 
 		<section class="overflow-hidden rounded-[30px] bg-white shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06]">
 			<div class="flex items-center justify-between gap-4 border-b border-neutral-200 px-5 py-5 dark:border-white/[0.06] sm:px-6"><div><div class="text-sm font-black text-brand-700 dark:text-brand-300">Detail individu</div><h2 class="mt-1 text-xl font-black">Kontribusi anggota</h2></div><div class="text-xs font-bold text-neutral-500">{leaderboard.members.length} data</div></div>
-			{#if leaderboard.members.length > 0}<div class="overflow-x-auto"><table class="min-w-[920px] w-full text-left"><thead class="bg-neutral-50 text-[11px] font-black uppercase tracking-wide text-neutral-500 dark:bg-white/[0.025]"><tr><th class="px-6 py-3">Anggota</th><th class="px-4 py-3">Divisi</th><th class="px-4 py-3 text-right">Overall</th><th class="px-4 py-3 text-right">Tahajud</th><th class="px-4 py-3 text-right">Tilawah + Tadabur</th><th class="px-4 py-3 text-right">Dzikir Pagi</th><th class="px-4 py-3 text-right">Dzikir Petang</th></tr></thead><tbody class="divide-y divide-neutral-100 dark:divide-white/[0.05]">{#each leaderboard.members as member}<tr class="text-sm"><td class="px-6 py-4"><div class="font-black">{member.member_name}</div><div class="mt-0.5 max-w-64 truncate text-[10px] text-neutral-400" title={member.source_file_name}>{member.source_file_name}</div></td><td class="px-4 py-4 text-neutral-500">{member.division}</td><td class="px-4 py-4 text-right text-base font-black">{formatPercent(member.overall_score)}%</td>{#each metricKeys as key}<td class="px-4 py-4 text-right"><div class="font-bold">{formatPercent(memberMetric(member, key))}%</div><div class="mt-0.5 text-[10px] text-neutral-400">{memberMetricAvailable(member, key)} checkbox</div></td>{/each}</tr>{/each}</tbody></table></div>{:else}<div class="px-6 py-10 text-center text-sm text-neutral-500">Belum ada snapshot anggota pada periode ini.</div>{/if}
+			{#if leaderboard.members.length > 0}<div class="overflow-x-auto"><table class="min-w-[920px] w-full text-left"><thead class="bg-neutral-50 text-[11px] font-black uppercase tracking-wide text-neutral-500 dark:bg-white/[0.025]"><tr><th class="px-6 py-3">Anggota</th><th class="px-4 py-3">Divisi</th><th class="px-4 py-3 text-right">Overall</th><th class="px-4 py-3 text-right">Tahajud</th><th class="px-4 py-3 text-right">Tilawah + Tadabur</th><th class="px-4 py-3 text-right">Dzikir Pagi</th><th class="px-4 py-3 text-right">Dzikir Petang</th></tr></thead><tbody class="divide-y divide-neutral-100 dark:divide-white/[0.05]">{#each leaderboard.members as member}<tr class="text-sm"><td class="px-6 py-4"><div class="flex items-center gap-3"><div class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-50 text-xs font-black text-emerald-800">{#if member.photo_url}<img src={member.photo_url} alt={`Foto ${member.member_name}`} class="h-full w-full object-cover" />{:else}{initials(member.member_name)}{/if}</div><div><div class="font-black">{member.member_name}</div><div class="mt-0.5 max-w-64 truncate text-[10px] text-neutral-400" title={member.source_file_name}>{member.source_file_name}</div></div></div></td><td class="px-4 py-4 text-neutral-500">{member.division}</td><td class="px-4 py-4 text-right text-base font-black">{formatPercent(member.overall_score)}%</td>{#each metricKeys as key}<td class="px-4 py-4 text-right"><div class="font-bold">{formatPercent(memberMetric(member, key))}%</div><div class="mt-0.5 text-[10px] text-neutral-400">{memberMetricAvailable(member, key)} checkbox</div></td>{/each}</tr>{/each}</tbody></table></div>{:else}<div class="px-6 py-10 text-center text-sm text-neutral-500">Belum ada snapshot anggota pada periode ini.</div>{/if}
 		</section>
 
 		<details class="group rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06] sm:p-6">
