@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maulanashalihini/laju-go/app/models"
+	"github.com/maulanashalihin/laju-go/app/models"
 )
 
 const maxAmaliyahXMLBytes = 8 * 1024 * 1024
