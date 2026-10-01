@@ -1,4 +1,5 @@
 import { createInertiaApp } from "@inertiajs/svelte";
+import "./nabawi-theme.css";
 
 createInertiaApp();
 
