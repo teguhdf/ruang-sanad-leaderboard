@@ -134,6 +134,7 @@ func main() {
 		ErrorHandler:      customErrorHandler,
 		StreamRequestBody: true,
 		ReadBufferSize:    64 * 1024,
+		BodyLimit:         32 * 1024 * 1024,
 	})
 
 	if cfg.IsDevelopment() {
