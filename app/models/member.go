@@ -11,6 +11,7 @@ type Member struct {
 	StartTime      string    `json:"start_time"`
 	FingerprintID  string    `json:"fingerprint_id"`
 	GoogleSheetURL string    `json:"google_sheet_url"`
+	PhotoURL       string    `json:"photo_url"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
