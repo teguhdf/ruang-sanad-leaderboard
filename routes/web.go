@@ -72,7 +72,7 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 				return c.Redirect("/app/my-attendance")
 			}
 		}
-		return appHandler.Dashboard(c)
+		return c.Redirect("/app/amaliyah")
 	})
 
 	protected.Get("/profile", appHandler.Profile)
