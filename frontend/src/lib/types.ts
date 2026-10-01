@@ -26,6 +26,7 @@ export interface Member {
 	start_time: string;
 	fingerprint_id: string;
 	google_sheet_url: string;
+	photo_url: string;
 	created_at: string;
 	updated_at: string;
 }
