@@ -66,17 +66,22 @@ func buildAttendanceWeekPlan(start, end time.Time, policy models.AttendancePolic
 			Source:   "default",
 		}
 
-		if roster, ok := rosterByDate[date]; ok {
+		defaultIsWork := workDaySet[attendanceWeekdayKey(day.Weekday())]
+		if defaultIsWork {
+			item.DayType = "work"
+			item.RequiredMinutes = defaultAttendanceMinutes(day.Weekday(), policy)
+		}
+
+		if roster, ok := rosterByDate[date]; ok && !rosterMatchesAttendanceDefault(roster, day, policy, defaultIsWork) {
 			item.DayType = normalizeAttendanceDayType(roster.DayType)
 			item.ShiftTemplateID = roster.ShiftTemplateID
 			item.WorkMode = strings.ToLower(strings.TrimSpace(roster.WorkMode))
 			item.Source = "roster"
 			if item.DayType == "work" {
 				item.RequiredMinutes = maxInt(roster.RequiredMinutes, 0)
+			} else {
+				item.RequiredMinutes = 0
 			}
-		} else if workDaySet[attendanceWeekdayKey(day.Weekday())] {
-			item.DayType = "work"
-			item.RequiredMinutes = defaultAttendanceMinutes(day.Weekday(), policy)
 		}
 
 		if leaveDates[date] && item.DayType == "work" && item.RequiredMinutes > 0 {
@@ -89,6 +94,17 @@ func buildAttendanceWeekPlan(start, end time.Time, policy models.AttendancePolic
 		plan.Days = append(plan.Days, item)
 	}
 	return plan
+}
+
+func rosterMatchesAttendanceDefault(roster models.AttendanceRosterDay, day time.Time, policy models.AttendancePolicy, defaultIsWork bool) bool {
+	dayType := normalizeAttendanceDayType(roster.DayType)
+	if !defaultIsWork {
+		return dayType == "off" && roster.ShiftTemplateID == nil && roster.RequiredMinutes == 0
+	}
+	return dayType == "work" &&
+		roster.ShiftTemplateID == nil &&
+		strings.EqualFold(strings.TrimSpace(roster.WorkMode), "onsite") &&
+		roster.RequiredMinutes == defaultAttendanceMinutes(day.Weekday(), policy)
 }
 
 func defaultAttendanceMinutes(day time.Weekday, policy models.AttendancePolicy) int {
