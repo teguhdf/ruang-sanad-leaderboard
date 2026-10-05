@@ -4,6 +4,7 @@
 	import { inertia, router } from "@inertiajs/svelte";
 	import {
 		CalendarClock,
+		CalendarDays,
 		ChevronRight,
 		ClipboardCheck,
 		FileSpreadsheet,
@@ -30,6 +31,7 @@
 		{ href: "/app/amaliyah", label: "Leaderboard Amaliyah", group: "amaliyah", icon: Trophy },
 		{ href: "/app/members", label: "Anggota Tim", group: "members", icon: UsersRound },
 		{ href: "/app/attendance", label: "Attendance", group: "attendance", icon: CalendarClock },
+		{ href: "/app/leave", label: "Cuti", group: "leave", icon: CalendarDays },
 		{ href: "/app/attendance/reviews", label: "Approval", group: "attendance-reviews", icon: ClipboardCheck },
 		{ href: "/app/fingerprint", label: "Fingerprint", group: "fingerprint", icon: FileSpreadsheet },
 		{ href: "/app/profile", label: "Pengaturan", group: "profile", icon: Settings },
@@ -37,6 +39,7 @@
 
 	const employeeLinks = [
 		{ href: "/app/my-attendance", label: "Absensi Saya", group: "my-attendance", icon: CalendarClock },
+		{ href: "/app/my-leave", label: "Cuti Saya", group: "my-leave", icon: CalendarDays },
 		{ href: "/app/profile", label: "Pengaturan", group: "profile", icon: Settings },
 	];
 
