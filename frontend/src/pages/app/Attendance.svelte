@@ -153,50 +153,73 @@
 		</section>
 
 		<section class="rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06] sm:p-6">
-			<div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-				<div>
+			<div class="flex flex-col gap-5 border-b border-neutral-100 pb-5 dark:border-white/[0.06] 2xl:flex-row 2xl:items-center 2xl:justify-between">
+				<div class="min-w-0">
 					<div class="flex items-center gap-2 text-sm font-bold text-brand-700 dark:text-brand-300"><CalendarDays size="18" /> Roster mingguan</div>
 					<h2 class="mt-1 text-xl font-black">Atur kewajiban kerja per anggota</h2>
-					<p class="mt-1 text-sm text-neutral-500">Default mengikuti hari kerja anggota. Simpan hanya hari yang perlu dioverride. Cuti approved dikunci otomatis.</p>
+					<p class="mt-1 max-w-3xl text-sm leading-6 text-neutral-500">Jadwal default mengikuti hari kerja anggota. Override hanya hari yang berubah. Cuti approved otomatis dikunci.</p>
 				</div>
-				<div class="flex flex-wrap items-end gap-2">
-					<button type="button" onclick={() => moveWeek(-7)} class="grid h-11 w-11 place-items-center rounded-2xl border border-neutral-200 bg-white dark:border-white/[0.08] dark:bg-neutral-900"><ChevronLeft size="18" /></button>
-					<label class="grid gap-1 text-xs font-bold text-neutral-500">Minggu<input bind:value={weekInput} type="date" class="min-h-11 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 text-sm font-bold dark:border-white/[0.07] dark:bg-neutral-900" /></label>
-					<button type="button" onclick={() => showWeek()} class="min-h-11 rounded-2xl bg-neutral-900 px-4 text-xs font-black text-white dark:bg-white dark:text-neutral-900">Tampilkan</button>
-					<button type="button" onclick={() => moveWeek(7)} class="grid h-11 w-11 place-items-center rounded-2xl border border-neutral-200 bg-white dark:border-white/[0.08] dark:bg-neutral-900"><ChevronRight size="18" /></button>
+				<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+					<div class="flex items-center gap-1.5 rounded-2xl bg-neutral-50 p-1.5 ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-white/[0.07]">
+						<button type="button" onclick={() => moveWeek(-7)} aria-label="Minggu sebelumnya" class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-neutral-600 shadow-sm ring-1 ring-neutral-200 transition hover:text-neutral-950 dark:bg-neutral-800 dark:text-neutral-300 dark:ring-white/[0.07]"><ChevronLeft size="17" /></button>
+						<label class="flex min-w-0 items-center gap-2 px-1 text-xs font-bold text-neutral-500"><span class="hidden sm:inline">Minggu</span><input bind:value={weekInput} type="date" class="h-9 w-[148px] border-0 bg-transparent p-0 text-sm font-black text-neutral-800 outline-none focus:ring-0 dark:text-neutral-100" /></label>
+						<button type="button" onclick={() => moveWeek(7)} aria-label="Minggu berikutnya" class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-neutral-600 shadow-sm ring-1 ring-neutral-200 transition hover:text-neutral-950 dark:bg-neutral-800 dark:text-neutral-300 dark:ring-white/[0.07]"><ChevronRight size="17" /></button>
+					</div>
+					<button type="button" onclick={() => showWeek()} class="min-h-12 rounded-2xl bg-neutral-900 px-5 text-xs font-black text-white transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900">Tampilkan</button>
 				</div>
 			</div>
 
-			<div class="mt-5 grid gap-4 lg:grid-cols-[260px_1fr]">
-				<div class="rounded-3xl bg-neutral-50 p-3 dark:bg-white/[0.03]">
-					<div class="px-2 pb-2 text-[11px] font-black uppercase tracking-wider text-neutral-400">Pilih anggota</div>
-					<div class="grid gap-1">
-						{#each foundation.roster_weeks as week}
-							<button type="button" onclick={() => (selectedMemberID = week.member_id)} class={`flex items-center justify-between gap-3 rounded-2xl px-3 py-3 text-left transition ${selectedMemberID === week.member_id ? 'bg-brand-600 text-white shadow-sm' : 'hover:bg-white dark:hover:bg-white/[0.05]'}`}>
-								<div class="min-w-0"><div class="truncate text-sm font-black">{week.member_name}</div><div class={`mt-0.5 truncate text-[11px] ${selectedMemberID === week.member_id ? 'text-white/70' : 'text-neutral-500'}`}>{week.division}</div></div>
-								<span class={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${selectedMemberID === week.member_id ? 'bg-white/15' : 'bg-white text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300'}`}>{formatMinutes(week.plan.required_minutes)}</span>
-							</button>
-						{/each}
+			<div class="mt-5 grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)]">
+				<aside class="xl:sticky xl:top-6 xl:self-start">
+					<div class="rounded-3xl bg-neutral-50 p-2.5 ring-1 ring-neutral-100 dark:bg-white/[0.03] dark:ring-white/[0.05]">
+						<div class="px-2 pb-2 pt-1 text-[10px] font-black uppercase tracking-[0.14em] text-neutral-400">Pilih anggota</div>
+						<div class="grid gap-1">
+							{#each foundation.roster_weeks as week}
+								<button type="button" onclick={() => (selectedMemberID = week.member_id)} class={`group flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition ${selectedMemberID === week.member_id ? 'bg-brand-600 text-white shadow-sm' : 'text-neutral-800 hover:bg-white hover:shadow-sm dark:text-neutral-100 dark:hover:bg-white/[0.05]'}`}>
+									<div class="min-w-0"><div class="truncate text-sm font-black">{week.member_name}</div><div class={`mt-0.5 truncate text-[11px] ${selectedMemberID === week.member_id ? 'text-white/70' : 'text-neutral-500'}`}>{week.division}</div></div>
+									<div class={`shrink-0 text-[11px] font-black ${selectedMemberID === week.member_id ? 'text-white' : 'text-neutral-500'}`}>{formatMinutes(week.plan.required_minutes)}</div>
+								</button>
+							{/each}
+						</div>
 					</div>
-				</div>
+				</aside>
 
 				{#if selectedWeek}
 					<div class="min-w-0">
-						<div class="mb-3 flex flex-wrap items-center justify-between gap-2"><div><div class="text-base font-black">{selectedWeek.member_name}</div><div class="text-xs text-neutral-500">{foundation.roster_week_start} s/d {foundation.roster_week_end}</div></div><div class="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-black text-brand-800 dark:bg-brand-950/40 dark:text-brand-200">Target efektif {formatMinutes(selectedWeek.plan.required_minutes)}</div></div>
-						<div class="grid gap-3">
+						<div class="flex flex-col gap-3 rounded-2xl bg-neutral-50 px-4 py-3 dark:bg-white/[0.03] sm:flex-row sm:items-center sm:justify-between">
+							<div class="min-w-0"><div class="truncate text-base font-black">{selectedWeek.member_name}</div><div class="mt-0.5 text-xs text-neutral-500">{foundation.roster_week_start} s/d {foundation.roster_week_end}</div></div>
+							<div class="flex items-center gap-2"><span class="text-xs font-bold text-neutral-500">Target efektif</span><span class="rounded-xl bg-brand-100 px-3 py-1.5 text-sm font-black text-brand-800 dark:bg-brand-950/50 dark:text-brand-200">{formatMinutes(selectedWeek.plan.required_minutes)}</span></div>
+						</div>
+
+						<div class="mt-3 overflow-hidden rounded-3xl border border-neutral-200 dark:border-white/[0.07]">
+							<div class="hidden bg-neutral-50 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400 dark:bg-white/[0.03] xl:grid xl:grid-cols-[125px_145px_125px_minmax(140px,1fr)_100px_170px] xl:gap-3">
+								<div>Hari</div><div>Status</div><div>Mode</div><div>Shift</div><div>Target</div><div class="text-right">Aksi</div>
+							</div>
+
 							{#each selectedWeek.plan.days as day}
 								{@const draft = rosterDrafts[selectedWeek.member_id]?.[day.work_date]}
-								<article class={`rounded-3xl border p-4 ${day.source === 'approved_leave' ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/15' : 'border-neutral-200 dark:border-white/[0.07]'}`}>
-									<div class="grid gap-3 xl:grid-cols-[150px_150px_145px_160px_120px_1fr] xl:items-end">
-										<div><div class="text-sm font-black">{formatDate(day.work_date)}</div><div class="mt-1 text-[10px] font-black uppercase tracking-wide text-neutral-400">{day.source === 'approved_leave' ? 'Cuti approved' : day.source === 'roster' ? 'Override roster' : 'Jadwal default'}</div></div>
-										<label class="grid gap-1 text-[11px] font-bold text-neutral-500">Status<select bind:value={draft.day_type} disabled={day.source === 'approved_leave'} class="min-h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2 text-xs font-bold dark:border-white/[0.07] dark:bg-neutral-900"><option value="work">Kerja</option><option value="off">Off</option><option value="replacement_off">Libur pengganti</option><option value="holiday">Libur</option><option value="sick">Sakit</option>{#if day.source === 'approved_leave'}<option value="leave">Cuti</option>{/if}</select></label>
-										<label class="grid gap-1 text-[11px] font-bold text-neutral-500">Mode<select bind:value={draft.work_mode} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="min-h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2 text-xs font-bold dark:border-white/[0.07] dark:bg-neutral-900"><option value="onsite">Onsite</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option></select></label>
-										<label class="grid gap-1 text-[11px] font-bold text-neutral-500">Shift<select bind:value={draft.shift_template_id} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="min-h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2 text-xs font-bold dark:border-white/[0.07] dark:bg-neutral-900"><option value="">Tanpa shift</option>{#each foundation.shift_templates as shift}<option value={String(shift.id)}>{shift.name}</option>{/each}</select></label>
-										<label class="grid gap-1 text-[11px] font-bold text-neutral-500">Target menit<input bind:value={draft.required_minutes} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} type="number" min="1" max="960" class="min-h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs font-bold dark:border-white/[0.07] dark:bg-neutral-900" /></label>
-										<div class="flex flex-wrap gap-2 xl:justify-end">{#if day.source !== 'approved_leave'}<button type="button" onclick={() => saveRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-brand-600 px-4 text-[11px] font-black text-white disabled:opacity-50"><Save size="14" />Simpan</button>{#if day.source === 'roster'}<button type="button" onclick={() => resetRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-3 text-[11px] font-black text-neutral-600 dark:border-white/[0.08] dark:text-neutral-300"><RotateCcw size="14" />Default</button>{/if}{:else}<span class="rounded-full bg-amber-100 px-3 py-2 text-[10px] font-black text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Dikelola dari Cuti</span>{/if}</div>
+								<div class={`border-t border-neutral-100 px-4 py-3 first:border-t-0 dark:border-white/[0.06] ${day.source === 'approved_leave' ? 'bg-amber-50/65 dark:bg-amber-950/10' : 'bg-white dark:bg-neutral-925'}`}>
+									<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-[125px_145px_125px_minmax(140px,1fr)_100px_170px] xl:items-center">
+										<div class="sm:col-span-2 xl:col-span-1">
+											<div class="text-sm font-black">{formatDate(day.work_date)}</div>
+											<div class={`mt-1 inline-flex rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-wide ${day.source === 'approved_leave' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : day.source === 'roster' ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300' : 'bg-neutral-100 text-neutral-500 dark:bg-white/[0.05] dark:text-neutral-400'}`}>{day.source === 'approved_leave' ? 'Cuti approved' : day.source === 'roster' ? 'Override' : 'Default'}</div>
+										</div>
+
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Status</span><select bind:value={draft.day_type} disabled={day.source === 'approved_leave'} class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="work">Kerja</option><option value="off">Off</option><option value="replacement_off">Libur pengganti</option><option value="holiday">Libur</option><option value="sick">Sakit</option>{#if day.source === 'approved_leave'}<option value="leave">Cuti</option>{/if}</select></label>
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Mode</span><select bind:value={draft.work_mode} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="onsite">Onsite</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option></select></label>
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Shift</span><select bind:value={draft.shift_template_id} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="h-10 min-w-0 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="">Tanpa shift</option>{#each foundation.shift_templates as shift}<option value={String(shift.id)}>{shift.name}</option>{/each}</select></label>
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Target menit</span><input bind:value={draft.required_minutes} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} type="number" min="1" max="960" class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-black text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100" /></label>
+
+										<div class="flex items-center gap-2 sm:col-span-2 xl:col-span-1 xl:justify-end">
+											{#if day.source !== 'approved_leave'}
+												<button type="button" onclick={() => saveRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3.5 text-[11px] font-black text-white transition hover:bg-brand-700 disabled:opacity-50"><Save size="14" />Simpan</button>
+												{#if day.source === 'roster'}<button type="button" onclick={() => resetRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[11px] font-black text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-neutral-900 dark:text-neutral-300"><RotateCcw size="14" />Default</button>{/if}
+											{:else}
+												<span class="rounded-xl bg-amber-100 px-3 py-2 text-[10px] font-black text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Dikelola dari Cuti</span>
+											{/if}
+										</div>
 									</div>
-									{#if day.shift_template_id && day.source === 'roster'}<div class="mt-2 text-[11px] text-neutral-400">Shift tersimpan: {shiftName(day.shift_template_id)}</div>{/if}
-								</article>
+								</div>
 							{/each}
 						</div>
 					</div>
