@@ -15,7 +15,7 @@ func TestBuildAttendanceWeekPlanAppliesApprovedLeaveToWeeklyTarget(t *testing.T)
 	workDays := []string{"mon", "tue", "wed", "thu", "fri", "sat"}
 	leave := []models.ApprovedLeavePeriod{{StartDate: "2026-10-07", EndDate: "2026-10-07"}}
 
-	plan := buildAttendanceWeekPlan(start, end, policy, workDays, nil, leave)
+	plan := buildAttendanceWeekPlan(start, end, policy, workDays, "onsite", nil, leave)
 
 	if plan.RequiredMinutes != 2160 {
 		t.Fatalf("expected weekly requirement 2160 after one weekday leave, got %d", plan.RequiredMinutes)
@@ -36,7 +36,7 @@ func TestBuildAttendanceWeekPlanUsesRosterForSundayAndReplacementOff(t *testing.
 		{WorkDate: "2026-10-11", DayType: "work", WorkMode: "remote", RequiredMinutes: 480},
 	}
 
-	plan := buildAttendanceWeekPlan(start, end, policy, workDays, rosters, nil)
+	plan := buildAttendanceWeekPlan(start, end, policy, workDays, "onsite", rosters, nil)
 
 	if plan.RequiredMinutes != 2640 {
 		t.Fatalf("expected replacement Sunday to preserve 2640 weekly target, got %d", plan.RequiredMinutes)
@@ -57,7 +57,7 @@ func TestBuildAttendanceWeekPlanDoesNotChargeLeaveOnOffDay(t *testing.T) {
 	workDays := []string{"mon", "tue", "wed", "thu", "fri", "sat"}
 	leave := []models.ApprovedLeavePeriod{{StartDate: "2026-10-11", EndDate: "2026-10-11"}}
 
-	plan := buildAttendanceWeekPlan(start, end, policy, workDays, nil, leave)
+	plan := buildAttendanceWeekPlan(start, end, policy, workDays, "onsite", nil, leave)
 
 	if plan.RequiredMinutes != 2640 {
 		t.Fatalf("expected Sunday leave range not to reduce target, got %d", plan.RequiredMinutes)
@@ -80,7 +80,7 @@ func TestBuildAttendanceWeekPlanIgnoresRosterRowsEqualToDefault(t *testing.T) {
 		{WorkDate: "2026-10-11", DayType: "off", WorkMode: "onsite", RequiredMinutes: 0},
 	}
 
-	plan := buildAttendanceWeekPlan(start, end, policy, workDays, rosters, nil)
+	plan := buildAttendanceWeekPlan(start, end, policy, workDays, "onsite", rosters, nil)
 
 	if plan.RequiredMinutes != 2640 {
 		t.Fatalf("expected default-equivalent roster rows to keep 2640 target, got %d", plan.RequiredMinutes)
@@ -107,12 +107,47 @@ func TestBuildAttendanceWeekPlanKeepsMaterialRosterOverride(t *testing.T) {
 		{WorkDate: "2026-10-11", DayType: "work", WorkMode: "onsite", RequiredMinutes: 480},
 	}
 
-	plan := buildAttendanceWeekPlan(start, end, policy, workDays, rosters, nil)
+	plan := buildAttendanceWeekPlan(start, end, policy, workDays, "onsite", rosters, nil)
 
 	if got := plan.Days[1]; got.Source != "roster" || got.DayType != "replacement_off" {
 		t.Fatalf("expected Tuesday replacement-off override, got %+v", got)
 	}
 	if got := plan.Days[6]; got.Source != "roster" || got.DayType != "work" || got.RequiredMinutes != 480 {
 		t.Fatalf("expected Sunday work override, got %+v", got)
+	}
+}
+
+
+func TestBuildAttendanceWeekPlanUsesProfileWorkModeForDefaultDays(t *testing.T) {
+	loc := time.FixedZone("WIB", 7*60*60)
+	start := time.Date(2026, 10, 5, 0, 0, 0, 0, loc)
+	end := start
+	policy := models.AttendancePolicy{WeekdayTargetMinutes: 480, SaturdayTargetMinutes: 240}
+	workDays := []string{"mon"}
+
+	plan := buildAttendanceWeekPlan(start, end, policy, workDays, "remote", nil, nil)
+
+	if got := plan.Days[0]; got.DayType != "work" || got.WorkMode != "remote" || got.Source != "default" {
+		t.Fatalf("expected default Monday remote work, got %+v", got)
+	}
+}
+
+func TestAttendanceLocationAllowedFollowsRosterMode(t *testing.T) {
+	cases := []struct {
+		workMode string
+		location string
+		want     bool
+	}{
+		{"onsite", "office", true},
+		{"onsite", "remote", false},
+		{"remote", "remote", true},
+		{"remote", "office", false},
+		{"hybrid", "office", true},
+		{"hybrid", "remote", true},
+	}
+	for _, tc := range cases {
+		if got := attendanceLocationAllowed(tc.workMode, tc.location); got != tc.want {
+			t.Fatalf("attendanceLocationAllowed(%q,%q)=%v, want %v", tc.workMode, tc.location, got, tc.want)
+		}
 	}
 }
