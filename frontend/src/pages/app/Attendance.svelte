@@ -132,7 +132,7 @@
 </script>
 
 <AppLayout {user} group="attendance">
-	<div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+	<div class="mx-auto min-w-0 max-w-7xl space-y-6 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 		<section class="flex flex-col gap-5 rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06] lg:flex-row lg:items-end lg:justify-between">
 			<div>
 				<div class="flex items-center gap-2 text-sm font-bold text-brand-700 dark:text-brand-300"><BadgeCheck size="18" /> Attendance Foundation</div>
@@ -152,7 +152,7 @@
 			<article class="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06]"><div class="flex items-center gap-2 text-sm font-bold text-neutral-500"><ShieldCheck size="18" />Lembur</div><div class="mt-3 text-xl font-black">Approval SPV</div><div class="mt-1 text-xs text-neutral-500">terpisah dari jam pengganti</div></article>
 		</section>
 
-		<section class="rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06] sm:p-6">
+		<section class="min-w-0 overflow-hidden rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06] sm:p-6">
 			<div class="flex flex-col gap-5 border-b border-neutral-100 pb-5 dark:border-white/[0.06] 2xl:flex-row 2xl:items-center 2xl:justify-between">
 				<div class="min-w-0">
 					<div class="flex items-center gap-2 text-sm font-bold text-brand-700 dark:text-brand-300"><CalendarDays size="18" /> Roster mingguan</div>
@@ -169,11 +169,11 @@
 				</div>
 			</div>
 
-			<div class="mt-5 grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)]">
-				<aside class="xl:sticky xl:top-6 xl:self-start">
+			<div class="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[220px_minmax(0,1fr)]">
+				<aside class="min-w-0 2xl:sticky 2xl:top-6 2xl:self-start">
 					<div class="rounded-3xl bg-neutral-50 p-2.5 ring-1 ring-neutral-100 dark:bg-white/[0.03] dark:ring-white/[0.05]">
 						<div class="px-2 pb-2 pt-1 text-[10px] font-black uppercase tracking-[0.14em] text-neutral-400">Pilih anggota</div>
-						<div class="grid gap-1">
+						<div class="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-1">
 							{#each foundation.roster_weeks as week}
 								<button type="button" onclick={() => (selectedMemberID = week.member_id)} class={`group flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition ${selectedMemberID === week.member_id ? 'bg-brand-600 text-white shadow-sm' : 'text-neutral-800 hover:bg-white hover:shadow-sm dark:text-neutral-100 dark:hover:bg-white/[0.05]'}`}>
 									<div class="min-w-0"><div class="truncate text-sm font-black">{week.member_name}</div><div class={`mt-0.5 truncate text-[11px] ${selectedMemberID === week.member_id ? 'text-white/70' : 'text-neutral-500'}`}>{week.division}</div></div>
@@ -192,28 +192,28 @@
 						</div>
 
 						<div class="mt-3 overflow-hidden rounded-3xl border border-neutral-200 dark:border-white/[0.07]">
-							<div class="hidden bg-neutral-50 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400 dark:bg-white/[0.03] xl:grid xl:grid-cols-[125px_145px_125px_minmax(140px,1fr)_100px_170px] xl:gap-3">
+							<div class="hidden bg-neutral-50 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400 dark:bg-white/[0.03] 2xl:grid 2xl:grid-cols-[125px_145px_125px_minmax(140px,1fr)_100px_170px] 2xl:gap-3">
 								<div>Hari</div><div>Status</div><div>Mode</div><div>Shift</div><div>Target</div><div class="text-right">Aksi</div>
 							</div>
 
 							{#each selectedWeek.plan.days as day}
 								{@const draft = rosterDrafts[selectedWeek.member_id]?.[day.work_date]}
 								<div class={`border-t border-neutral-100 px-4 py-3 first:border-t-0 dark:border-white/[0.06] ${day.source === 'approved_leave' ? 'bg-amber-50/65 dark:bg-amber-950/10' : 'bg-white dark:bg-neutral-925'}`}>
-									<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-[125px_145px_125px_minmax(140px,1fr)_100px_170px] xl:items-center">
-										<div class="sm:col-span-2 xl:col-span-1">
+									<div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-[125px_145px_125px_minmax(140px,1fr)_100px_170px] 2xl:items-center">
+										<div class="sm:col-span-2 2xl:col-span-1">
 											<div class="text-sm font-black">{formatDate(day.work_date)}</div>
 											<div class={`mt-1 inline-flex rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-wide ${day.source === 'approved_leave' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : day.source === 'roster' ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300' : 'bg-neutral-100 text-neutral-500 dark:bg-white/[0.05] dark:text-neutral-400'}`}>{day.source === 'approved_leave' ? 'Cuti approved' : day.source === 'roster' ? 'Override' : 'Default'}</div>
 										</div>
 
-										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Status</span><select bind:value={draft.day_type} disabled={day.source === 'approved_leave'} class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="work">Kerja</option><option value="off">Off</option><option value="replacement_off">Libur pengganti</option><option value="holiday">Libur</option><option value="sick">Sakit</option>{#if day.source === 'approved_leave'}<option value="leave">Cuti</option>{/if}</select></label>
-										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Mode</span><select bind:value={draft.work_mode} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="onsite">Onsite</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option></select></label>
-										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Shift</span><select bind:value={draft.shift_template_id} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="h-10 min-w-0 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="">Tanpa shift</option>{#each foundation.shift_templates as shift}<option value={String(shift.id)}>{shift.name}</option>{/each}</select></label>
-										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="xl:hidden">Target menit</span><input bind:value={draft.required_minutes} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} type="number" min="1" max="960" class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-black text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100" /></label>
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="2xl:hidden">Status</span><select bind:value={draft.day_type} disabled={day.source === 'approved_leave'} class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="work">Kerja</option><option value="off">Off</option><option value="replacement_off">Libur pengganti</option><option value="holiday">Libur</option><option value="sick">Sakit</option>{#if day.source === 'approved_leave'}<option value="leave">Cuti</option>{/if}</select></label>
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="2xl:hidden">Mode</span><select bind:value={draft.work_mode} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="onsite">Onsite</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option></select></label>
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="2xl:hidden">Shift</span><select bind:value={draft.shift_template_id} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} class="h-10 min-w-0 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-bold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="">Tanpa shift</option>{#each foundation.shift_templates as shift}<option value={String(shift.id)}>{shift.name}</option>{/each}</select></label>
+										<label class="grid gap-1 text-[10px] font-bold text-neutral-500"><span class="2xl:hidden">Target menit</span><input bind:value={draft.required_minutes} disabled={day.source === 'approved_leave' || draft.day_type !== 'work'} type="number" min="1" max="960" class="h-10 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 text-xs font-black text-neutral-800 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100" /></label>
 
-										<div class="flex items-center gap-2 sm:col-span-2 xl:col-span-1 xl:justify-end">
+										<div class="flex items-center gap-2 sm:col-span-2 2xl:col-span-1 2xl:justify-end">
 											{#if day.source !== 'approved_leave'}
-												<button type="button" onclick={() => saveRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3.5 text-[11px] font-black text-white transition hover:bg-brand-700 disabled:opacity-50"><Save size="14" />Simpan</button>
-												{#if day.source === 'roster'}<button type="button" onclick={() => resetRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[11px] font-black text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-neutral-900 dark:text-neutral-300"><RotateCcw size="14" />Default</button>{/if}
+												<button type="button" onclick={() => saveRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3.5 text-[11px] font-black text-white transition hover:bg-brand-700 disabled:opacity-50 sm:flex-none"><Save size="14" />Simpan</button>
+												{#if day.source === 'roster'}<button type="button" onclick={() => resetRoster(selectedWeek.member_id, day.work_date)} disabled={saving !== null} class="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[11px] font-black text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-neutral-900 dark:text-neutral-300 sm:flex-none"><RotateCcw size="14" />Default</button>{/if}
 											{:else}
 												<span class="rounded-xl bg-amber-100 px-3 py-2 text-[10px] font-black text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Dikelola dari Cuti</span>
 											{/if}
@@ -249,7 +249,7 @@
 
 			<div class="mt-5 grid gap-4">
 				{#each foundation.profiles as profile}
-					<article class="grid gap-4 rounded-3xl border border-neutral-200 p-4 dark:border-white/[0.07] xl:grid-cols-[minmax(180px,1fr)_170px_180px_minmax(240px,1.2fr)] xl:items-end">
+					<article class="grid gap-4 rounded-3xl border border-neutral-200 p-4 dark:border-white/[0.07] lg:grid-cols-2 2xl:grid-cols-[minmax(180px,1fr)_170px_180px_minmax(240px,1.2fr)] 2xl:items-end">
 						<div class="flex items-center gap-3"><div class="grid h-11 w-11 place-items-center rounded-2xl bg-brand-100 text-sm font-black text-brand-800 dark:bg-brand-950/60 dark:text-brand-200">{profile.member_name.charAt(0).toUpperCase()}</div><div class="min-w-0"><div class="truncate text-sm font-black">{profile.member_name}</div><div class="mt-0.5 truncate text-xs text-neutral-500">{profile.division}</div></div></div>
 						<label class="grid gap-1.5 text-xs font-bold text-neutral-500">Mode kerja<select bind:value={drafts[profile.member_id].work_mode} class="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm font-bold text-neutral-800 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="onsite">Onsite</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option></select></label>
 						<div class="grid gap-2"><label class="grid gap-1.5 text-xs font-bold text-neutral-500">Tipe jadwal<select bind:value={drafts[profile.member_id].schedule_type} class="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm font-bold text-neutral-800 dark:border-white/[0.07] dark:bg-neutral-900 dark:text-neutral-100"><option value="shift">Shift / roster</option><option value="flexible">Fleksibel</option></select></label><button type="button" onclick={() => saveProfile(profile.member_id)} disabled={saving !== null} class="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-neutral-900 px-4 text-xs font-black text-white dark:bg-white dark:text-neutral-900"><Save size="15" />Simpan profil</button></div>
