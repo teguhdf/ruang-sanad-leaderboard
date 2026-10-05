@@ -80,10 +80,6 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	protected.Put("/profile/password", appHandler.UpdatePassword)
 	protected.Post("/upload", uploadHandler.AvatarUpload)
 
-	// Do not mount role middleware on an empty-prefix subgroup. In Fiber that
-	// middleware also intercepts sibling /app routes registered afterwards.
-	// Attach role guards per route so employee and management routes can coexist
-	// under the same /app prefix without cross-blocking each other.
 	managementOnly := middlewares.RoleRequired(userService, models.RoleSPV, models.RoleAdmin)
 	protected.Get("/members", managementOnly, appHandler.Members)
 	protected.Post("/members", managementOnly, appHandler.CreateMember)
@@ -94,6 +90,8 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	protected.Post("/amaliyah/import", managementOnly, appHandler.ImportAmaliyahWorkspaces)
 	protected.Get("/attendance", managementOnly, appHandler.AttendanceFoundation)
 	protected.Put("/attendance/profiles/:memberID", managementOnly, appHandler.UpdateAttendanceProfile)
+	protected.Post("/attendance/roster/:memberID/:workDate", managementOnly, appHandler.SaveRosterDay)
+	protected.Delete("/attendance/roster/:memberID/:workDate", managementOnly, appHandler.ResetRosterDay)
 	protected.Post("/attendance/invite/:memberID", managementOnly, employeeAttendanceHandler.InviteEmployee)
 	protected.Get("/attendance/reviews", managementOnly, employeeAttendanceHandler.AttendanceReviews)
 	protected.Post("/attendance/reviews/adjustments/:requestID", managementOnly, employeeAttendanceHandler.ReviewAdjustment)
