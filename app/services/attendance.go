@@ -75,7 +75,7 @@ func (s *AttendanceService) GetFoundationForWeek(ownerUserID int64, requestedWee
 			Division:   profile.Division,
 			WeekStart:  weekStart.Format("2006-01-02"),
 			WeekEnd:    weekEnd.Format("2006-01-02"),
-			Plan:       buildAttendanceWeekPlan(weekStart, weekEnd, policy, workDays, rosters, leavePeriods),
+			Plan:       buildAttendanceWeekPlan(weekStart, weekEnd, policy, workDays, profile.WorkMode, rosters, leavePeriods),
 		})
 	}
 
@@ -205,7 +205,18 @@ func (s *AttendanceService) SaveRosterDay(ownerUserID, memberID int64, workDate 
 		WorkMode:        input.WorkMode,
 		RequiredMinutes: input.RequiredMinutes,
 	}
-	if rosterMatchesAttendanceDefault(candidate, date, policy, workDaySet[attendanceWeekdayKey(date.Weekday())]) {
+	defaultWorkMode := "onsite"
+	profiles, err := s.querier.ListMemberAttendanceProfiles(ctx, ownerUserID)
+	if err != nil {
+		return err
+	}
+	for _, profile := range profiles {
+		if profile.MemberID == memberID {
+			defaultWorkMode = profile.WorkMode
+			break
+		}
+	}
+	if rosterMatchesAttendanceDefault(candidate, date, policy, workDaySet[attendanceWeekdayKey(date.Weekday())], defaultWorkMode) {
 		return s.querier.DeleteRosterDay(ctx, ownerUserID, memberID, date.Format("2006-01-02"))
 	}
 
