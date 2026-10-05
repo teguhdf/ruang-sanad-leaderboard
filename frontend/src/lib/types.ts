@@ -78,10 +78,34 @@ export interface ShiftTemplate {
 	segments: ShiftSegment[];
 }
 
+export interface AttendanceDayPlan {
+	work_date: string;
+	day_type: "work" | "off" | "replacement_off" | "holiday" | "sick" | "leave";
+	shift_template_id?: number;
+	work_mode: "onsite" | "remote" | "hybrid";
+	required_minutes: number;
+	source: "default" | "roster" | "approved_leave";
+}
+
+export interface MemberAttendanceWeek {
+	member_id: number;
+	member_name: string;
+	division: string;
+	week_start: string;
+	week_end: string;
+	plan: {
+		days: AttendanceDayPlan[];
+		required_minutes: number;
+	};
+}
+
 export interface AttendanceFoundation {
 	policy: AttendancePolicy;
 	profiles: MemberAttendanceProfile[];
 	shift_templates: ShiftTemplate[];
+	roster_week_start: string;
+	roster_week_end: string;
+	roster_weeks: MemberAttendanceWeek[];
 }
 
 export interface EmployeeAttendanceIdentity {
