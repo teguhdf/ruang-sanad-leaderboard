@@ -56,9 +56,12 @@ type ShiftTemplate struct {
 }
 
 type AttendanceFoundation struct {
-	Policy         AttendancePolicy          `json:"policy"`
-	Profiles       []MemberAttendanceProfile `json:"profiles"`
-	ShiftTemplates []ShiftTemplate           `json:"shift_templates"`
+	Policy          AttendancePolicy          `json:"policy"`
+	Profiles        []MemberAttendanceProfile `json:"profiles"`
+	ShiftTemplates  []ShiftTemplate           `json:"shift_templates"`
+	RosterWeekStart string                    `json:"roster_week_start"`
+	RosterWeekEnd   string                    `json:"roster_week_end"`
+	RosterWeeks     []MemberAttendanceWeek    `json:"roster_weeks"`
 }
 
 type OvertimeRequest struct {
