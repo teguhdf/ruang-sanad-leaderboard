@@ -25,8 +25,11 @@
 
 	let { user, attendance, success, error }: Props = $props();
 	let locationMode = $state<"office" | "remote">(
-		attendance.identity.work_mode === "remote" ? "remote" : "office",
+		attendance.today_plan.work_mode === "remote" ? "remote" : "office",
 	);
+	const canStartToday = $derived(attendance.today_plan.day_type === "work" && attendance.today_plan.required_minutes > 0);
+	const allowsOffice = $derived(attendance.today_plan.work_mode !== "remote");
+	const allowsRemote = $derived(attendance.today_plan.work_mode !== "onsite");
 	let nowMs = $state(Date.now());
 	let forgotCheckout = $state({ end_time: "", reason: "" });
 	let correction = $state({
@@ -59,6 +62,17 @@
 			minute: "2-digit",
 			timeZone: "Asia/Jakarta",
 		}).format(new Date(value));
+	}
+
+	function dayTypeLabel(value: string) {
+		switch (value) {
+		case "work": return "Hari kerja";
+		case "replacement_off": return "Libur pengganti";
+		case "holiday": return "Libur";
+		case "sick": return "Sakit";
+		case "leave": return "Cuti";
+		default: return "Off";
+		}
 	}
 
 	function activeElapsed() {
@@ -129,7 +143,7 @@
 			<article class="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06]">
 				<div class="flex items-center gap-3 text-neutral-500"><Clock3 size="20" /><span class="text-sm font-semibold">Hari ini</span></div>
 				<div class="mt-4 text-3xl font-black">{formatMinutes(attendance.today_minutes).replace("+", "")}</div>
-				<div class="mt-1 text-xs text-neutral-500">dari semua sesi selesai</div>
+				<div class="mt-1 text-xs text-neutral-500">{dayTypeLabel(attendance.today_plan.day_type)} · target {formatMinutes(attendance.today_plan.required_minutes).replace("+", "")}</div>
 			</article>
 			<article class="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06]">
 				<div class="flex items-center gap-3 text-neutral-500"><TimerReset size="20" /><span class="text-sm font-semibold">Balance minggu</span></div>
@@ -166,19 +180,31 @@
 					</form>
 				</details>
 			{:else}
-				<div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-					<div>
-						<h2 class="text-xl font-black">Mulai sesi kerja</h2>
-						<p class="mt-1 text-sm text-neutral-500">Satu akun hanya bisa memiliki satu sesi aktif. Anda boleh membuat beberapa sesi dalam satu hari.</p>
-					</div>
-					<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-						<div class="inline-flex rounded-full bg-neutral-100 p-1 dark:bg-white/[0.06]">
-							<button type="button" onclick={() => (locationMode = "office")} class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold {locationMode === 'office' ? 'bg-white text-brand-700 shadow-sm dark:bg-neutral-800 dark:text-brand-300' : 'text-neutral-500'}"><Building2 size="16" />Kantor</button>
-							<button type="button" onclick={() => (locationMode = "remote")} class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold {locationMode === 'remote' ? 'bg-white text-brand-700 shadow-sm dark:bg-neutral-800 dark:text-brand-300' : 'text-neutral-500'}"><Laptop size="16" />Remote</button>
+				{#if canStartToday}
+					<div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+						<div>
+							<h2 class="text-xl font-black">Mulai sesi kerja</h2>
+							<p class="mt-1 text-sm text-neutral-500">Roster hari ini: {attendance.today_plan.work_mode} · target {formatMinutes(attendance.today_plan.required_minutes).replace("+", "")}. Anda boleh membuat beberapa sesi dalam satu hari.</p>
 						</div>
-						<button type="button" onclick={startWork} disabled={sending === "start"} class="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-600 px-6 text-sm font-bold text-white transition hover:bg-brand-700 disabled:opacity-50"><Play size="18" fill="currentColor" />{sending === "start" ? "Memulai..." : "Mulai Kerja"}</button>
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+							<div class="inline-flex rounded-full bg-neutral-100 p-1 dark:bg-white/[0.06]">
+								{#if allowsOffice}<button type="button" onclick={() => (locationMode = "office")} class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold {locationMode === 'office' ? 'bg-white text-brand-700 shadow-sm dark:bg-neutral-800 dark:text-brand-300' : 'text-neutral-500'}"><Building2 size="16" />Kantor</button>{/if}
+								{#if allowsRemote}<button type="button" onclick={() => (locationMode = "remote")} class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold {locationMode === 'remote' ? 'bg-white text-brand-700 shadow-sm dark:bg-neutral-800 dark:text-brand-300' : 'text-neutral-500'}"><Laptop size="16" />Remote</button>{/if}
+							</div>
+							<button type="button" onclick={startWork} disabled={sending === "start"} class="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-600 px-6 text-sm font-bold text-white transition hover:bg-brand-700 disabled:opacity-50"><Play size="18" fill="currentColor" />{sending === "start" ? "Memulai..." : "Mulai Kerja"}</button>
+						</div>
 					</div>
-				</div>
+				{:else}
+					<div class="rounded-3xl bg-neutral-50 p-5 ring-1 ring-neutral-200 dark:bg-white/[0.03] dark:ring-white/[0.06]">
+						<div class="flex items-start gap-3">
+							<div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-neutral-200 text-neutral-600 dark:bg-white/[0.07] dark:text-neutral-300"><Clock3 size="20" /></div>
+							<div>
+								<h2 class="text-lg font-black">Tidak ada kewajiban kerja hari ini</h2>
+								<p class="mt-1 text-sm leading-6 text-neutral-500">Status roster: {dayTypeLabel(attendance.today_plan.day_type)}. Tombol mulai kerja dinonaktifkan agar sesi tidak tercatat pada hari off, cuti, sakit, libur, atau libur pengganti.</p>
+							</div>
+						</div>
+					</div>
+				{/if}
 			{/if}
 		</section>
 
