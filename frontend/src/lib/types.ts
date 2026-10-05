@@ -159,6 +159,8 @@ export interface OvertimeRequest {
 export interface MyAttendanceSummary {
 	identity: EmployeeAttendanceIdentity;
 	today: string;
+	today_plan: AttendanceDayPlan;
+	week_plan: AttendanceDayPlan[];
 	active_session?: AttendanceSession;
 	today_sessions: AttendanceSession[];
 	today_minutes: number;
