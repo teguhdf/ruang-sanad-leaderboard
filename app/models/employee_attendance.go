@@ -71,6 +71,8 @@ type ReviewRequestInput struct {
 type MyAttendanceSummary struct {
 	Identity             EmployeeAttendanceIdentity    `json:"identity"`
 	Today                string                        `json:"today"`
+	TodayPlan            AttendanceDayPlan             `json:"today_plan"`
+	WeekPlan             []AttendanceDayPlan           `json:"week_plan"`
 	ActiveSession        *AttendanceSession            `json:"active_session,omitempty"`
 	TodaySessions        []AttendanceSession           `json:"today_sessions"`
 	TodayMinutes         int                           `json:"today_minutes"`
