@@ -186,6 +186,29 @@ func (s *AttendanceService) SaveRosterDay(ownerUserID, memberID int64, workDate 
 		}
 	}
 
+	workDays, err := s.querier.GetMemberWorkDaysForLeave(ctx, ownerUserID, memberID)
+	if err != nil {
+		return err
+	}
+	policy, err := s.querier.GetAttendancePolicy(ctx, ownerUserID)
+	if err != nil {
+		return err
+	}
+	workDaySet := make(map[string]bool, len(workDays))
+	for _, day := range workDays {
+		workDaySet[strings.ToLower(strings.TrimSpace(day))] = true
+	}
+	candidate := models.AttendanceRosterDay{
+		WorkDate:        date.Format("2006-01-02"),
+		DayType:         input.DayType,
+		ShiftTemplateID: input.ShiftTemplateID,
+		WorkMode:        input.WorkMode,
+		RequiredMinutes: input.RequiredMinutes,
+	}
+	if rosterMatchesAttendanceDefault(candidate, date, policy, workDaySet[attendanceWeekdayKey(date.Weekday())]) {
+		return s.querier.DeleteRosterDay(ctx, ownerUserID, memberID, date.Format("2006-01-02"))
+	}
+
 	return s.querier.UpsertRosterDay(ctx, ownerUserID, memberID, date.Format("2006-01-02"), input)
 }
 
