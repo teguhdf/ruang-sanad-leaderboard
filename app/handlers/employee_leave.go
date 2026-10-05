@@ -11,12 +11,14 @@ import (
 	"github.com/maulanashalihin/laju-go/app/services"
 )
 
+var leaveLocation = time.FixedZone("WIB", 7*60*60)
+
 func (h *EmployeeAttendanceHandler) MyLeave(c *fiber.Ctx) error {
 	userID, ok := authenticatedUserID(c)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authenticated"})
 	}
-	year := time.Now().In(time.FixedZone("WIB", 7*60*60)).Year()
+	year := time.Now().In(leaveLocation).Year()
 	if value := c.Query("year"); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil {
 			year = parsed
@@ -76,7 +78,7 @@ func (h *EmployeeAttendanceHandler) LeaveAdministration(c *fiber.Ctx) error {
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authenticated"})
 	}
-	year := time.Now().In(time.FixedZone("WIB", 7*60*60)).Year()
+	year := time.Now().In(leaveLocation).Year()
 	if value := c.Query("year"); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil {
 			year = parsed
@@ -109,6 +111,9 @@ func (h *EmployeeAttendanceHandler) SetLeaveEntitlement(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		h.store.Flash(c, "error", "Jatah cuti tidak dapat dibaca.")
 		return h.inertiaService.Redirect(c, "/app/leave")
+	}
+	if input.Year == 0 {
+		input.Year = time.Now().In(leaveLocation).Year()
 	}
 	if err := h.service.SetLeaveEntitlement(ownerUserID, memberID, input); err != nil {
 		setLeaveFlashError(h, c, err)
