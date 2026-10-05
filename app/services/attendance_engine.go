@@ -68,6 +68,7 @@ func buildAttendanceWeekPlan(start, end time.Time, policy models.AttendancePolic
 
 		if roster, ok := rosterByDate[date]; ok {
 			item.DayType = normalizeAttendanceDayType(roster.DayType)
+			item.ShiftTemplateID = roster.ShiftTemplateID
 			item.WorkMode = strings.ToLower(strings.TrimSpace(roster.WorkMode))
 			item.Source = "roster"
 			if item.DayType == "work" {
