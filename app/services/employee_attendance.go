@@ -95,6 +95,24 @@ func (s *EmployeeAttendanceService) GetMyAttendance(userID int64) (*models.MyAtt
 
 	now := time.Now().In(s.location)
 	today := now.Format("2006-01-02")
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, s.location)
+	dayPlan, err := s.buildAttendanceWeekPlan(ctx, identity, todayStart, todayStart)
+	if err != nil {
+		return err
+	}
+	if len(dayPlan.Days) != 1 || dayPlan.Days[0].DayType != "work" || dayPlan.Days[0].RequiredMinutes <= 0 {
+		return &EmployeeAttendanceValidationError{Message: "Hari ini tidak memiliki kewajiban kerja aktif pada roster."}
+	}
+	if !attendanceLocationAllowed(dayPlan.Days[0].WorkMode, locationMode) {
+		switch normalizeAttendanceWorkMode(dayPlan.Days[0].WorkMode) {
+		case "remote":
+			return &EmployeeAttendanceValidationError{Message: "Roster hari ini hanya mengizinkan sesi Remote."}
+		case "onsite":
+			return &EmployeeAttendanceValidationError{Message: "Roster hari ini hanya mengizinkan sesi Kantor."}
+		default:
+			return &EmployeeAttendanceValidationError{Message: "Lokasi kerja tidak sesuai roster hari ini."}
+		}
+	}
 	if err := s.querier.MarkStaleActiveSessionsIncomplete(ctx, identity.MemberID, today); err != nil {
 		return nil, err
 	}
@@ -316,6 +334,17 @@ func (s *EmployeeAttendanceService) ReviewOvertime(ownerUserID, requestID, revie
 		return err
 	}
 	return s.querier.ReviewOvertimeRequest(context.Background(), ownerUserID, requestID, reviewerUserID, approve, strings.TrimSpace(input.ReviewNote))
+}
+
+func attendanceLocationAllowed(workMode, locationMode string) bool {
+	switch normalizeAttendanceWorkMode(workMode) {
+	case "remote":
+		return locationMode == "remote"
+	case "hybrid":
+		return locationMode == "office" || locationMode == "remote"
+	default:
+		return locationMode == "office"
+	}
 }
 
 func normalizeLocation(value string) string {
