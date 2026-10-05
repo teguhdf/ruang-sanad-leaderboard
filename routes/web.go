@@ -94,6 +94,9 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	management.Get("/attendance/reviews", employeeAttendanceHandler.AttendanceReviews)
 	management.Post("/attendance/reviews/adjustments/:requestID", employeeAttendanceHandler.ReviewAdjustment)
 	management.Post("/attendance/reviews/overtime/:requestID", employeeAttendanceHandler.ReviewOvertime)
+	management.Get("/leave", employeeAttendanceHandler.LeaveAdministration)
+	management.Post("/leave/entitlements/:memberID", employeeAttendanceHandler.SetLeaveEntitlement)
+	management.Post("/leave/reviews/:requestID", employeeAttendanceHandler.ReviewLeave)
 	management.Get("/fingerprint", appHandler.FingerprintImport)
 	management.Post("/fingerprint/preview", appHandler.PreviewFingerprint)
 	management.Post("/fingerprint/import", appHandler.SaveFingerprintImport)
@@ -106,6 +109,9 @@ func setupAppRoutes(app *fiber.App, appHandler *handlers.AppHandler, employeeAtt
 	employee.Post("/my-attendance/forgot-checkout", employeeAttendanceHandler.RequestForgotCheckout)
 	employee.Post("/my-attendance/adjustments", employeeAttendanceHandler.RequestAdjustment)
 	employee.Post("/my-attendance/overtime", employeeAttendanceHandler.RequestOvertime)
+	employee.Get("/my-leave", employeeAttendanceHandler.MyLeave)
+	employee.Post("/my-leave/requests", employeeAttendanceHandler.RequestLeave)
+	employee.Post("/my-leave/requests/:requestID/cancel", employeeAttendanceHandler.CancelLeave)
 
 	uploadHandler.RegisterTUSRoutes(
 		app,
