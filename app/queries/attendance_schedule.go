@@ -65,3 +65,37 @@ func (q *Querier) ListApprovedLeavePeriodsForMemberRange(ctx context.Context, ow
 	}
 	return items, rows.Err()
 }
+
+func (q *Querier) UpsertRosterDay(ctx context.Context, ownerUserID, memberID int64, workDate string, input models.RosterDayInput) error {
+	var exists int
+	if err := q.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM members WHERE owner_user_id = ? AND id = ?
+	`, ownerUserID, memberID).Scan(&exists); err != nil {
+		return err
+	}
+	if exists != 1 {
+		return ErrMemberNotFound
+	}
+
+	_, err := q.db.ExecContext(ctx, `
+		INSERT INTO rosters (
+			owner_user_id, member_id, work_date, day_type,
+			shift_template_id, work_mode, required_minutes
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(member_id, work_date) DO UPDATE SET
+			day_type = excluded.day_type,
+			shift_template_id = excluded.shift_template_id,
+			work_mode = excluded.work_mode,
+			required_minutes = excluded.required_minutes,
+			updated_at = CURRENT_TIMESTAMP
+	`, ownerUserID, memberID, workDate, input.DayType, input.ShiftTemplateID, input.WorkMode, input.RequiredMinutes)
+	return err
+}
+
+func (q *Querier) DeleteRosterDay(ctx context.Context, ownerUserID, memberID int64, workDate string) error {
+	_, err := q.db.ExecContext(ctx, `
+		DELETE FROM rosters
+		WHERE owner_user_id = ? AND member_id = ? AND work_date = ?
+	`, ownerUserID, memberID, workDate)
+	return err
+}
