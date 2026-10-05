@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	ErrEmployeeAlreadyLinked    = errors.New("employee account already linked")
-	ErrEmployeeInviteConflict  = errors.New("email belongs to a non-employee account")
-	ErrAttendanceSessionActive = errors.New("attendance session already active")
+	ErrEmployeeAlreadyLinked      = errors.New("employee account already linked")
+	ErrEmployeeInviteConflict     = errors.New("email belongs to a non-employee account")
+	ErrAttendanceSessionActive    = errors.New("attendance session already active")
 	ErrNoActiveAttendanceSession = errors.New("no active attendance session")
 )
 
@@ -116,6 +116,19 @@ func (s *EmployeeAttendanceService) GetMyAttendance(userID int64) (*models.MyAtt
 	weekStart := weekStartTime.Format("2006-01-02")
 	weekEnd := weekEndTime.Format("2006-01-02")
 
+	weekPlan, err := s.buildAttendanceWeekPlan(ctx, identity, weekStartTime, weekEndTime)
+	if err != nil {
+		return nil, err
+	}
+	todayPlan := models.AttendanceDayPlan{WorkDate: today, DayType: "off", WorkMode: identity.WorkMode, Source: "default"}
+	for _, day := range weekPlan.Days {
+		if day.WorkDate == today {
+			todayPlan = day
+			break
+		}
+	}
+	identity.WeeklyTargetMinutes = weekPlan.RequiredMinutes
+
 	sessions, err := s.querier.ListAttendanceSessions(ctx, identity.MemberID, weekStart, weekEnd)
 	if err != nil {
 		return nil, err
@@ -147,14 +160,16 @@ func (s *EmployeeAttendanceService) GetMyAttendance(userID int64) (*models.MyAtt
 	return &models.MyAttendanceSummary{
 		Identity:             identity,
 		Today:                today,
+		TodayPlan:            todayPlan,
+		WeekPlan:             weekPlan.Days,
 		ActiveSession:        active,
 		TodaySessions:        todaySessions,
 		TodayMinutes:         todayMinutes,
 		WeekStart:            weekStart,
 		WeekEnd:              weekEnd,
 		WeeklyMinutes:        weeklyMinutes,
-		WeeklyTargetMinutes:  identity.WeeklyTargetMinutes,
-		WeeklyBalanceMinutes: weeklyMinutes - identity.WeeklyTargetMinutes,
+		WeeklyTargetMinutes:  weekPlan.RequiredMinutes,
+		WeeklyBalanceMinutes: weeklyMinutes - weekPlan.RequiredMinutes,
 		Adjustments:          adjustments,
 		OvertimeRequests:     overtime,
 	}, nil
