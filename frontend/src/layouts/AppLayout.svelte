@@ -43,7 +43,14 @@
 		{ href: "/app/profile", label: "Pengaturan", group: "profile", icon: Settings },
 	];
 
+	const superAdminLinks = [
+		...managementLinks.filter((item) => item.group !== "profile"),
+		...employeeLinks.filter((item) => item.group !== "profile"),
+		{ href: "/app/profile", label: "Pengaturan", group: "profile", icon: Settings },
+	];
+
 	function menuLinks() {
+		if (user?.role === "super_admin") return superAdminLinks;
 		return user?.role === "employee" ? employeeLinks : managementLinks;
 	}
 
@@ -74,7 +81,7 @@
 			<div class="grid h-11 w-11 place-items-center rounded-2xl bg-brand-600 text-sm font-black tracking-tight text-white shadow-sm ring-4 ring-brand-100/80 dark:ring-brand-900/45">RS</div>
 			<div class="min-w-0">
 				<div class="truncate text-[15px] font-bold tracking-tight text-neutral-900 dark:text-white">Ruang Sanad Ops</div>
-				<div class="mt-0.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{user?.role === "employee" ? "Employee Workspace" : "Team Operations"}</div>
+				<div class="mt-0.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{user?.role === "super_admin" ? "Super Admin Test" : user?.role === "employee" ? "Employee Workspace" : "Team Operations"}</div>
 			</div>
 		</a>
 
@@ -120,7 +127,7 @@
 		<div class="fixed inset-0 z-50 lg:hidden">
 			<button type="button" class="absolute inset-0 bg-black/35 backdrop-blur-[2px]" onclick={() => (mobileOpen = false)} aria-label="Tutup menu" transition:fade={{ duration: 140 }}></button>
 			<aside class="absolute inset-y-0 left-0 flex w-[min(86vw,320px)] flex-col border-r border-brand-100/80 bg-gradient-to-b from-white via-white to-brand-50/45 p-4 shadow-2xl dark:border-brand-900/35 dark:from-neutral-925 dark:via-neutral-925 dark:to-brand-950/20" transition:fly={{ x: -24, duration: 190 }}>
-				<div class="mb-5 flex items-center gap-3 rounded-2xl px-2 py-2"><div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-xs font-black text-white shadow-sm ring-4 ring-brand-100/70 dark:ring-brand-900/40">RS</div><div class="flex-1"><div class="text-sm font-bold">Ruang Sanad Ops</div><div class="text-[10px] text-neutral-500">{user?.role === "employee" ? "Employee Workspace" : "Team Operations"}</div></div><button type="button" onclick={() => (mobileOpen = false)} class="grid h-9 w-9 place-items-center rounded-full hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/30 dark:hover:text-brand-200" aria-label="Tutup menu"><X size="20" /></button></div>
+				<div class="mb-5 flex items-center gap-3 rounded-2xl px-2 py-2"><div class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-600 text-xs font-black text-white shadow-sm ring-4 ring-brand-100/70 dark:ring-brand-900/40">RS</div><div class="flex-1"><div class="text-sm font-bold">Ruang Sanad Ops</div><div class="text-[10px] text-neutral-500">{user?.role === "super_admin" ? "Super Admin Test" : user?.role === "employee" ? "Employee Workspace" : "Team Operations"}</div></div><button type="button" onclick={() => (mobileOpen = false)} class="grid h-9 w-9 place-items-center rounded-full hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/30 dark:hover:text-brand-200" aria-label="Tutup menu"><X size="20" /></button></div>
 				<div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-brand-500/85 dark:text-brand-300/75">Workspace</div>
 				<nav class="grid gap-1.5">
 					{#each menuLinks() as item}
@@ -139,7 +146,7 @@
 
 	<div class="lg:pl-64">
 		<header class="sticky top-0 z-20 hidden h-16 items-center border-b border-neutral-200/80 bg-neutral-50/90 px-7 backdrop-blur-xl dark:border-white/[0.06] dark:bg-neutral-950/90 lg:flex">
-			<div><div class="text-sm font-bold tracking-tight text-neutral-900 dark:text-white">{pageTitle()}</div><div class="mt-0.5 text-[10px] font-medium text-neutral-500">Ruang Sanad · {user?.role === "employee" ? "Employee" : "Team Operations"}</div></div>
+			<div><div class="text-sm font-bold tracking-tight text-neutral-900 dark:text-white">{pageTitle()}</div><div class="mt-0.5 text-[10px] font-medium text-neutral-500">Ruang Sanad · {user?.role === "super_admin" ? "Super Admin Test" : user?.role === "employee" ? "Employee" : "Team Operations"}</div></div>
 			<div class="ml-auto flex items-center gap-2"><DarkModeToggle /><div class="ml-1 h-8 w-px bg-neutral-200 dark:bg-white/[0.06]"></div><div class="flex items-center gap-2 rounded-full bg-white px-2.5 py-1.5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-925 dark:ring-white/[0.06]"><div class="grid h-7 w-7 place-items-center rounded-full bg-brand-600 text-[10px] font-extrabold text-white">{user?.name?.charAt(0).toUpperCase() ?? "U"}</div><span class="max-w-36 truncate pr-1 text-xs font-bold">{user?.name ?? "User"}</span></div></div>
 		</header>
 		<main class="min-h-[calc(100vh-4rem)]">{@render children()}</main>
