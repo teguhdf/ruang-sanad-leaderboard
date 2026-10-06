@@ -12,9 +12,10 @@ const (
 	// Sprint 2 will migrate/invite explicit SPV and employee accounts before
 	// role-based route enforcement is enabled.
 	RoleUser     UserRole = "user"
-	RoleAdmin    UserRole = "admin"
-	RoleSPV      UserRole = "spv"
-	RoleEmployee UserRole = "employee"
+	RoleAdmin      UserRole = "admin"
+	RoleSuperAdmin UserRole = "super_admin"
+	RoleSPV        UserRole = "spv"
+	RoleEmployee   UserRole = "employee"
 )
 
 type User struct {
