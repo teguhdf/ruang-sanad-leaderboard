@@ -26,6 +26,15 @@ func (h *EmployeeAttendanceHandler) MyLeave(c *fiber.Ctx) error {
 	}
 	balance, requests, err := h.service.GetEmployeeLeave(userID, year)
 	if err != nil {
+		if errors.Is(err, queries.ErrEmployeeProfileNotFound) {
+			sess, _ := h.store.Get(c)
+			return h.inertiaService.Render(c, "app/EmployeeIdentityRequired", fiber.Map{
+				"user":        sessionUser(sess),
+				"group":       "my-leave",
+				"title":       "Cuti Saya",
+				"description": "Akun ini belum terhubung ke profil anggota untuk pengajuan cuti.",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load leave"})
 	}
 	sess, _ := h.store.Get(c)
