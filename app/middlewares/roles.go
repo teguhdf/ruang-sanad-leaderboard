@@ -22,10 +22,19 @@ func RoleRequired(userService *services.UserService, allowed ...models.UserRole)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify role"})
 		}
-		if _, ok := allowedSet[user.Role]; !ok {
+		if !roleAllowed(user.Role, allowedSet) {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
 		}
 		c.Locals("role", string(user.Role))
 		return c.Next()
 	}
+}
+
+
+func roleAllowed(actual models.UserRole, allowed map[models.UserRole]struct{}) bool {
+	if actual == models.RoleSuperAdmin {
+		return true
+	}
+	_, ok := allowed[actual]
+	return ok
 }
