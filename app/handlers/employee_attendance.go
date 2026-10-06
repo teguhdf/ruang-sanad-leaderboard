@@ -28,11 +28,20 @@ func (h *EmployeeAttendanceHandler) MyAttendance(c *fiber.Ctx) error {
 	}
 	summary, err := h.service.GetMyAttendance(userID)
 	if err != nil {
+		if errors.Is(err, queries.ErrEmployeeProfileNotFound) {
+			sess, _ := h.store.Get(c)
+			return h.inertiaService.Render(c, "app/EmployeeIdentityRequired", fiber.Map{
+				"user":        sessionUser(sess),
+				"group":       "my-attendance",
+				"title":       "Absensi Saya",
+				"description": "Akun ini belum terhubung ke profil anggota untuk absensi.",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load attendance"})
 	}
 	sess, _ := h.store.Get(c)
 	return h.inertiaService.Render(c, "app/MyAttendance", fiber.Map{
-		"user": sessionUser(sess),
+		"user":       sessionUser(sess),
 		"attendance": summary,
 	})
 }
