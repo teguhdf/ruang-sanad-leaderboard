@@ -110,5 +110,5 @@ func (s *UserService) IsAdmin(userID int64) (bool, error) {
 		return false, err
 	}
 
-	return user.Role == models.RoleAdmin, nil
+	return user.Role == models.RoleAdmin || user.Role == models.RoleSuperAdmin, nil
 }
